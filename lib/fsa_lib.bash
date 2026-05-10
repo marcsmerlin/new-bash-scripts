@@ -22,25 +22,9 @@ verify_script_dependencies "${_FSA_LIB_DEPS[@]}" || return 1
 readonly _FSA_LIB_INCLUDED=1
 
 # shellcheck source=./result_type_lib.bash
-source "$BASH_LIBS_DIR/result_type_lib.bash"
-
-#
-# get_device_for_label <device | error> <label>
-#
-get_device_for_label() {
-    local label="$2"
-    local device_path="/dev/disk/by-label/$label"
-
-    # resolved device path should be a symlink
-    if [[ ! -L "$device_path" ]]; then
-        originate_error "$1" 'device labeled "%s" does not exist' "$label"
-        return 1
-    fi
-
-    # return the resolved path (e.g., /dev/sdc1)
-    copy_out_result "$1" "$(readlink -f "$device_path")"
-    return 0
-}
+source "$BASH_LIBS_DIR/result_type_lib.bash" || return 1
+# shellcheck source=./file_system_lib.bash
+source "$BASH_LIBS_DIR/file_system_lib.bash" || return 1
 
 #
 # fsarchiver_savefs <error-message out> <fsa-file> <fs-dev>
