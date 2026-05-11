@@ -27,7 +27,27 @@ source "$BASH_LIBS_DIR/result_type_lib.bash" || return 1
 source "$BASH_LIBS_DIR/file_system_lib.bash" || return 1
 
 #
-# fsarchiver_savefs <error-message out> <fsa-file> <fs-dev>
+# fsarchiver_archinfo <error-trace out> <fsa-file>
+#
+fsarchiver_archinfo() {
+    local fsa_file="$2"
+    local rc
+
+    fsarchiver archinfo "$fsa_file"
+    rc="$?"
+
+    if ((rc != 0)); then
+        originate_error "$1" \
+            'fsarchiver archinfo has failed with error code %d.\n' \
+            "$rc"
+        return 1
+    fi
+
+    return 0
+}
+
+#
+# fsarchiver_savefs <error-trace out> <fsa-file> <fs-dev>
 #
 fsarchiver_savefs() {
     local fsa_file="$2"

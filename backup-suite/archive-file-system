@@ -76,5 +76,13 @@ if ! archive_file_system result "$file_system" "$archive_directory"; then
     exit 1
 fi
 
-printf_stderr '"%s" created.\n' "$result"
+fsa_file="$result"
+
+printf_stderr '"%s" created.\n' "$fsa_file"
+
+if ! fsarchiver_archinfo result "$fsa_file"; then
+    print_error_trace "$result"
+    exit 1
+fi
+
 exit 0
