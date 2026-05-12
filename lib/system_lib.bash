@@ -12,19 +12,15 @@
 readonly _SYSTEM_LIB_INCLUDED=1
 
 #
-# trim <in-out-string>
+# trim_string <string>
 #
-trim() {
-    local input="${!1}"
+trim_string() {
+    local value="$1"
 
-    # trim leading
-    input="${input#"${input%%[![:space:]]*}"}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
 
-    # trim trailing
-    input="${input%"${input##*[![:space:]]}"}"
-
-    printf -v "$1" '%s' "$input"
-    return 0
+    printf '%s\n' "$value"
 }
 
 #
