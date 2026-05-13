@@ -8,7 +8,7 @@
 }
 
 # re-source guard
-[[ ${_SYSTEM_LIB_INCLUDED:-} ]] && return
+[[ ${_SYSTEM_LIB_INCLUDED:-} ]] && return 0
 readonly _SYSTEM_LIB_INCLUDED=1
 
 #

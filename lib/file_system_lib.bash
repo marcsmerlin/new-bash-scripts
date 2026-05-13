@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2155 # Declare and assign separately to avoid masking return values.
+# shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
 
 # execution guard
 [[ "${BASH_SOURCE[0]}" != "$0" ]] || {
@@ -16,7 +17,8 @@ if [[ -z ${BASH_LIBS_DIR:-} ]]; then
 fi
 
 # shellcheck source=./result_type_lib.bash
-source "$BASH_LIBS_DIR/result_type_lib.bash" || return 1
+source "$BASH_LIBS_DIR/result_type_lib.bash"
+(($? == 0 )) || return 1
 
 #
 # get_device_for_label <device | error> <label>

@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2155 # Declare and assign separately to avoid masking return values.
+# shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
 
 # execution guard
 [[ "${BASH_SOURCE[0]}" != "$0" ]] || {
@@ -22,9 +23,12 @@ verify_script_dependencies "${_FSA_LIB_DEPS[@]}" || return 1
 readonly _FSA_LIB_INCLUDED=1
 
 # shellcheck source=./result_type_lib.bash
-source "$BASH_LIBS_DIR/result_type_lib.bash" || return 1
+source "$BASH_LIBS_DIR/result_type_lib.bash"
+(($? == 0 )) || return 1
+
 # shellcheck source=./file_system_lib.bash
-source "$BASH_LIBS_DIR/file_system_lib.bash" || return 1
+source "$BASH_LIBS_DIR/file_system_lib.bash"
+(($? == 0 )) || return 1
 
 #
 # fsarchiver_archinfo <error-trace out> <fsa-file>

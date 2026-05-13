@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2155 # Declare and assign separately to avoid masking return values.
+# shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
 
 # execution guard
 [[ "${BASH_SOURCE[0]}" != "$0" ]] || {
@@ -15,14 +16,17 @@ if [[ -z ${BASH_LIBS_DIR:-} ]]; then
 fi
 
 # shellcheck source=./system_lib.bash
-source "$BASH_LIBS_DIR/system_lib.bash" || return 1
+source "$BASH_LIBS_DIR/system_lib.bash"
+(($? == 0 )) || return 1
 
+# shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
 readonly _COMMAND_LIB_DEPS=(getopt)
 verify_script_dependencies "${_COMMAND_LIB_DEPS[@]}" || return 1
 readonly _COMMAND_LIB_INCLUDED=1
 
 # shellcheck source=./result_type_lib.bash
 source "$BASH_LIBS_DIR/result_type_lib.bash" || return 1
+(($? == 0 )) || return 1
 
 declare -a command_line_args
 declare -A command_line_opts
