@@ -28,8 +28,8 @@ source "$BASH_LIBS_DIR/result_type_lib.bash"
 # Normalized resource-spec forms:
 #
 #   local:<absolute-path>
-#   label:<label>/<absolute-resource-spec-path-without-leading-extra-slash>
-#   nfs:<host>/<share>/<absolute-resource-spec-path-without-leading-extra-slash>
+#   label:<label>/<absolute-resource-spec-root-without-leading-extra-slash>
+#   nfs:<host>/<share>/<absolute-resource-spec-root-without-leading-extra-slash>
 #
 # Public resource_spec types:
 #
@@ -39,20 +39,20 @@ source "$BASH_LIBS_DIR/result_type_lib.bash"
 #
 
 #
-# normalize_resource_spec_path <path>
+# normalize_resource_spec_root <root-path>
 #
-normalize_resource_spec_path() {
-    local path
-    path="$(trim_string "$1")"
+normalize_resource_spec_root() {
+    local root
+    root="$(trim_string "$1")"
 
-    [[ -n $path ]] || {
+    [[ -n $root ]] || {
         printf '/\n'
         return 0
     }
 
-    path="$(realpath -m -- "$path")"
+    root="$(realpath -m -- "$root")"
 
-    printf '%s\n' "$path"
+    printf '%s\n' "$root"
 }
 
 #
@@ -91,7 +91,7 @@ validate_resource_spec() {
             return 1
         fi
 
-        normalized_path="$(normalize_resource_spec_path "/$rest")"
+        normalized_path="$(normalize_resource_spec_root "/$rest")"
         copy_out_result "$1" "label:$label$normalized_path"
         return 0
         ;;
@@ -114,7 +114,7 @@ validate_resource_spec() {
             return 1
         fi
 
-        normalized_path="$(normalize_resource_spec_path "/$rest")"
+        normalized_path="$(normalize_resource_spec_root "/$rest")"
         copy_out_result "$1" "nfs:$host/$share$normalized_path"
         return 0
         ;;
@@ -122,7 +122,7 @@ validate_resource_spec() {
     local:*)
         type="local"
         body="${candidate#local:}"
-        normalized_path="$(normalize_resource_spec_path "$body")"
+        normalized_path="$(normalize_resource_spec_root "$body")"
 
         copy_out_result "$1" "local:$normalized_path"
         return 0
@@ -134,7 +134,7 @@ validate_resource_spec() {
         ;;
 
     *)
-        normalized_path="$(normalize_resource_spec_path "$candidate")"
+        normalized_path="$(normalize_resource_spec_root "$candidate")"
 
         copy_out_result "$1" "local:$normalized_path"
         return 0
@@ -152,9 +152,9 @@ get_resource_spec_type() {
 }
 
 #
-# get_resource_spec_path <normalized-resource-spec>
+# get_resource_spec_root <normalized-resource-spec>
 #
-get_resource_spec_path() {
+get_resource_spec_root() {
     local resource_spec="$1"
     local type
     local body
