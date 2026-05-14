@@ -100,7 +100,6 @@ archive_file_system() {
 
     local basename="$(date +%F-%H-%M-%S)".fsa
     local fsa_file="$(readlink -f "$fsa_dir/$basename")"
-    clear_var "$tmpvar"
 
     if ! fsarchiver_savefs "$tmpvar" "$fsa_file" "$fs_dev"; then
         forward_error "$1" "${!tmpvar}"

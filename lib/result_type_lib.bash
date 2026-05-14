@@ -18,13 +18,6 @@ make_tmpvar() {
 }
 
 #
-# clear_var <var-name>
-#
-clear_var() {
-    printf -v "$1" ''
-}
-
-#
 # copy_out_result <result> <value>
 #
 copy_out_result() {
