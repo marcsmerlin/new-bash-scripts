@@ -153,48 +153,15 @@ is_temp_mount_spec() {
     [[ "$3" == temporary ]]
 }
 
-# format_mount_spec_for_display <mount-spec> <relative-path> <display-path out>
+#
+# format_mount_spec_for_display <mount-spec>
 #
 format_mount_spec_for_display() {
-    local tmpvar="$(make_tmpvar)"
-
-    printf -v "$tmpvar" '%s' "$3"
-
-    eval "set -- $1"
-
-    case "$2" in
-    /)
-        printf -v "${!tmpvar}" '%s' "$4"
-        ;;
-    /*)
-        printf -v "${!tmpvar}" '%s%s' "$4" "$2"
-        ;;
-    *)
-        printf -v "${!tmpvar}" '%s/%s' "$4" "$2"
-        ;;
-    esac
+    format_resource_spec_for_display \
+        "$(_get_mount_spec_resource_spec "$1")"
 }
 
-# extend_mount_spec_path <mount-spec> <relative-path>
 #
-extend_mount_spec_path() {
-    local root
-
-    root="$(get_mount_spec_root "$1")"
-
-    case "$2" in
-    /)
-        printf '%s\n' "$root"
-        ;;
-    /*)
-        printf '%s%s\n' "$root" "$2"
-        ;;
-    *)
-        printf '%s/%s\n' "$root" "$2"
-        ;;
-    esac
-}
-
 # _get_mount_spec_resource_spec <mount-spec>
 #
 _get_mount_spec_resource_spec() {
@@ -203,31 +170,58 @@ _get_mount_spec_resource_spec() {
     printf '%s\n' "$4"
 }
 
+#
+# get_mount_spec_working_root <mount-spec>
+#
+get_mount_spec_working_root() {
+    eval "set -- $1"
+
+    printf '%s\n' "$2"
+}
+
+#
+# umount_wrapper <error-message out> <mount-point>
+#
+umount_wrapper() {
+    local mount_point="$2"
+    local tmpvar="$(make_tmpvar)"
+
+    capture_output "$tmpvar" umount "$mount_point" || {
+        sleep 1
+
+        capture_output "$tmpvar" umount "$mount_point" || {
+            originate_error "$1" \
+                'Failed to unmount mount point "%s": %s' \
+                "$mount_point" \
+                "${!tmpvar}"
+            return 1
+        }
+    }
+
+    return 0
+}
+
+#
 # release_mount_spec <error-message out> <mount-spec>
 #
 # Typical use: release_mount_spec "$1" "$mount_spec" || return "$?"
 #
 release_mount_spec() {
-    local mount_point
-    local resource_spec
-    local formatted_resource_spec
+    local mount_point="$(get_mount_spec_mount_point "$2")"
+    local tmpvar="$(make_tmpvar)"
 
-    mount_point="$(get_mount_spec_mount_point "$2")"
-    resource_spec="$(_get_mount_spec_resource_spec "$2")"
-    formatted_resource_spec="$(format_resource_spec_for_display "$resource_spec")"
-
-    umount "$mount_point" ||
-        originate_error "$1" \
-            'Failed to unmount resource "%s" at mount point "%s".' \
-            "$formatted_resource_spec" \
-            "$mount_point"
+    umount_wrapper "$tmpvar" "$mount_point" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
 
     if is_temp_mount_spec "$2"; then
-        rmdir "$mount_point" ||
+        rmdir "$mount_point" || {
             originate_error "$1" \
-                'Failed to remove temporary mount point directory "%s" for resource "%s".' \
-                "$mount_point" \
-                "$formatted_resource_spec"
+                'Failed to remove temporary mount point directory "%s".' \
+                "$mount_point"
+            return 1
+        }
     fi
 
     return 0
@@ -317,6 +311,29 @@ mount_resource_spec() {
 
     mount_wrapper "$tmpvar" "$device" "$mount_point" "${4:-}" || {
         forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local required_directory="$mount_point$(get_resource_spec_root "$resource_spec")"
+
+    [[ -d "$required_directory" ]] || {
+        local error_message
+
+        printf -v error_message \
+            'Required directory for resource "%s" does not exist.' \
+            "$(format_resource_spec_for_display "$resource_spec")"
+
+        umount_wrapper "$tmpvar" "$mount_point" || {
+            originate_error "$1" \
+                '%s Also failed to unmount mount point "%s": %s' \
+                "$error_message" \
+                "$mount_point" \
+                "${!tmpvar}"
+
+            return 1
+        }
+
+        originate_error "$1" '%s' "$error_message"
         return 1
     }
 
