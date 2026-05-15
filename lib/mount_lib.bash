@@ -57,7 +57,7 @@ _build_mount_spec() {
     local resource_root
     local root
 
-    resource_type="$(get_resource_spec_type "$resource_spec")"
+    resource_type="$(resource_spec_type "$resource_spec")"
 
     [[ "$resource_type" != local ]] || {
         originate_error "$1" \
@@ -66,7 +66,7 @@ _build_mount_spec() {
         return 1
     }
 
-    resource_root="$(get_resource_spec_root "$resource_spec")"
+    resource_root="$(resource_spec_root "$resource_spec")"
 
     case "$resource_root" in
     /)
@@ -109,37 +109,17 @@ build_temp_mount_spec() {
 }
 
 #
-# _split_mount_spec <mount-spec> <mount-point out> <root out>
+# mount_spec_mount_point <mount-spec>
 #
-_split_mount_spec() {
-    local tmpvar="$(make_tmpvar)"
-    local mp
-    local root
-
-    printf -v "$tmpvar" '%s %s' "$2" "$3"
-
-    eval "set -- $1"
-
-    mp="$1"
-    root="$2"
-
-    eval "set -- ${!tmpvar}"
-
-    printf -v "$1" '%s' "$mp"
-    printf -v "$2" '%s' "$root"
-}
-
-# get_mount_spec_mount_point <mount-spec>
-#
-get_mount_spec_mount_point() {
+mount_spec_mount_point() {
     eval "set -- $1"
 
     printf '%s\n' "$1"
 }
 
-# get_mount_spec_root <mount-spec>
+# mount_spec_root <mount-spec>
 #
-get_mount_spec_root() {
+mount_spec_root() {
     eval "set -- $1"
 
     printf '%s\n' "$2"
@@ -154,26 +134,26 @@ is_temp_mount_spec() {
 }
 
 #
-# format_mount_spec_for_display <mount-spec>
+# _mount_spec_resource_spec <mount-spec>
 #
-format_mount_spec_for_display() {
-    format_resource_spec_for_display \
-        "$(_get_mount_spec_resource_spec "$1")"
-}
-
-#
-# _get_mount_spec_resource_spec <mount-spec>
-#
-_get_mount_spec_resource_spec() {
+_mount_spec_resource_spec() {
     eval "set -- $1"
 
     printf '%s\n' "$4"
 }
 
 #
-# get_mount_spec_working_root <mount-spec>
+# format_mount_spec_for_display <mount-spec>
 #
-get_mount_spec_working_root() {
+format_mount_spec_for_display() {
+    format_resource_spec_for_display \
+        "$(_mount_spec_resource_spec "$1")"
+}
+
+#
+# mount_spec_working_directory <mount-spec>
+#
+mount_spec_working_directory() {
     eval "set -- $1"
 
     printf '%s\n' "$2"
@@ -207,7 +187,7 @@ umount_wrapper() {
 # Typical use: release_mount_spec "$1" "$mount_spec" || return "$?"
 #
 release_mount_spec() {
-    local mount_point="$(get_mount_spec_mount_point "$2")"
+    local mount_point="$(mount_spec_mount_point "$2")"
     local tmpvar="$(make_tmpvar)"
 
     umount_wrapper "$tmpvar" "$mount_point" || {
@@ -232,14 +212,14 @@ release_mount_spec() {
 #
 get_device_for_resource_spec() {
     local resource_spec="$2"
-    local type="$(get_resource_spec_type "$resource_spec")"
+    local type="$(resource_spec_type "$resource_spec")"
 
     case "$type" in
     label)
         local tmpvar="$(make_tmpvar)"
 
         if ! get_device_for_label "$tmpvar" \
-            "$(get_resource_spec_label "$resource_spec")"; then
+            "$(resource_spec_label "$resource_spec")"; then
             forward_error "$1" "${!tmpvar}"
             return 1
         fi
@@ -249,8 +229,8 @@ get_device_for_resource_spec() {
         ;;
 
     nfs)
-        local host="$(get_resource_spec_host "$resource_spec")"
-        local share="$(get_resource_spec_share "$resource_spec")"
+        local host="$(resource_spec_host "$resource_spec")"
+        local share="$(resource_spec_share "$resource_spec")"
 
         # Current NFS locator policy: shares are exported under /nfs.
         copy_out_result "$1" "$host:/nfs/$share"
@@ -314,7 +294,7 @@ mount_resource_spec() {
         return 1
     }
 
-    local required_directory="$mount_point$(get_resource_spec_root "$resource_spec")"
+    local required_directory="$mount_point$(resource_spec_root "$resource_spec")"
 
     [[ -d "$required_directory" ]] || {
         local error_message

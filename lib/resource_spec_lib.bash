@@ -143,24 +143,24 @@ validate_resource_spec() {
 }
 
 #
-# get_resource_spec_type <normalized-resource-spec>
+# resource_spec_type <normalized-resource-spec>
 #
-get_resource_spec_type() {
+resource_spec_type() {
     local resource_spec="$1"
 
     printf '%s\n' "${resource_spec%%:*}"
 }
 
 #
-# get_resource_spec_root <normalized-resource-spec>
+# resource_spec_root <normalized-resource-spec>
 #
-get_resource_spec_root() {
+resource_spec_root() {
     local resource_spec="$1"
     local type
     local body
     local rest
 
-    type="$(get_resource_spec_type "$resource_spec")"
+    type="$(resource_spec_type "$resource_spec")"
     body="${resource_spec#*:}"
 
     case "$type" in
@@ -186,13 +186,13 @@ get_resource_spec_root() {
 }
 
 #
-# get_resource_spec_label <normalized-resource-spec>
+# resource_spec_label <normalized-resource-spec>
 #
-get_resource_spec_label() {
+resource_spec_label() {
     local resource_spec="$1"
     local body="${resource_spec#*:}"
 
-    if [[ $(get_resource_spec_type "$resource_spec") == label ]]; then
+    if [[ $(resource_spec_type "$resource_spec") == label ]]; then
         printf '%s\n' "${body%%/*}"
     else
         printf '\n'
@@ -200,13 +200,13 @@ get_resource_spec_label() {
 }
 
 #
-# get_resource_spec_host <normalized-resource-spec>
+# resource_spec_host <normalized-resource-spec>
 #
-get_resource_spec_host() {
+resource_spec_host() {
     local resource_spec="$1"
     local body="${resource_spec#*:}"
 
-    if [[ $(get_resource_spec_type "$resource_spec") == nfs ]]; then
+    if [[ $(resource_spec_type "$resource_spec") == nfs ]]; then
         printf '%s\n' "${body%%/*}"
     else
         printf '\n'
@@ -214,14 +214,14 @@ get_resource_spec_host() {
 }
 
 #
-# get_resource_spec_share <normalized-resource-spec>
+# resource_spec_share <normalized-resource-spec>
 #
-get_resource_spec_share() {
+resource_spec_share() {
     local resource_spec="$1"
     local body="${resource_spec#*:}"
     local rest
 
-    if [[ $(get_resource_spec_type "$resource_spec") == nfs ]]; then
+    if [[ $(resource_spec_type "$resource_spec") == nfs ]]; then
         rest="${body#*/}"
         printf '%s\n' "${rest%%/*}"
     else
