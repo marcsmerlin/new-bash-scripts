@@ -9,8 +9,8 @@
 }
 
 # re-source guard
-[[ ${_MOUNT_LIB_INCLUDED:-} ]] && return
-readonly _MOUNT_LIB_INCLUDED=1
+[[ ${_MOUNT_SPEC_LIB_INCLUDED:-} ]] && return
+readonly _MOUNT_SPEC_LIB_INCLUDED=1
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -86,9 +86,9 @@ _build_mount_spec() {
     return 0
 }
 
-# build_mount_spec <mount-spec | error-message out> <mount-point> <resource-spec>
+# _make_mount_spec <mount-spec | error-message out> <mount-point> <resource-spec>
 #
-build_mount_spec() {
+_make_mount_spec() {
     _build_mount_spec "$1" "$2" "$3" '' || {
         forward_error "$1" "$1"
         return 1
@@ -97,9 +97,9 @@ build_mount_spec() {
     return 0
 }
 
-# build_temp_mount_spec <mount-spec | error-message out> <mount-point> <resource-spec>
+# _make_temp_mount_spec <mount-spec | error-message out> <mount-point> <resource-spec>
 #
-build_temp_mount_spec() {
+_make_temp_mount_spec() {
     _build_mount_spec "$1" "$2" "$3" temporary || {
         forward_error "$1" "$1"
         return 1
@@ -125,9 +125,9 @@ mount_spec_root() {
     printf '%s\n' "$2"
 }
 
-# is_temp_mount_spec <mount-spec>
+# _is_temp_mount_spec <mount-spec>
 #
-is_temp_mount_spec() {
+_is_temp_mount_spec() {
     eval "set -- $1"
 
     [[ "$3" == temporary ]]
@@ -195,7 +195,7 @@ release_mount_spec() {
         return 1
     }
 
-    if is_temp_mount_spec "$2"; then
+    if _is_temp_mount_spec "$2"; then
         rmdir "$mount_point" || {
             originate_error "$1" \
                 'Failed to remove temporary mount point directory "%s".' \
@@ -208,9 +208,9 @@ release_mount_spec() {
 }
 
 #
-# get_device_for_resource_spec <device | error-message out> <resource-spec>
+# _get_device_for_resource_spec <device | error-message out> <resource-spec>
 #
-get_device_for_resource_spec() {
+_get_device_for_resource_spec() {
     local resource_spec="$2"
     local type="$(resource_spec_type "$resource_spec")"
 
@@ -274,22 +274,23 @@ mount_wrapper() {
 }
 
 #
-# mount_resource_spec <mount-spec | error-message out> <resource-spec> <mount-point> [<mount-options>]
+# _mount_resource_spec <mount-spec | error-message out> <temporary-flag> <resource-spec> <mount-point> [<mount-options>]
 #
-mount_resource_spec() {
-    local resource_spec="$2"
-    local mount_point="$3"
+_mount_resource_spec() {
+    local temporary_flag="$2"
+    local resource_spec="$3"
+    local mount_point="$4"
     local tmpvar="$(make_tmpvar)"
     local device
 
-    get_device_for_resource_spec "$tmpvar" "$resource_spec" || {
+    _get_device_for_resource_spec "$tmpvar" "$resource_spec" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
     device="${!tmpvar}"
 
-    mount_wrapper "$tmpvar" "$device" "$mount_point" "${4:-}" || {
+    mount_wrapper "$tmpvar" "$device" "$mount_point" "${5:-}" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
@@ -317,8 +318,76 @@ mount_resource_spec() {
         return 1
     }
 
-    build_mount_spec "$tmpvar" "$mount_point" "$resource_spec" || {
+    if [[ $temporary_flag == temporary ]]; then
+        _make_temp_mount_spec "$tmpvar" "$mount_point" "$resource_spec" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+
+    else
+        _make_mount_spec "$tmpvar" "$mount_point" "$resource_spec" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+    fi
+
+    copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+#
+# make_tmpdir <temp-directory | error-message out>
+#
+make_tmpdir() {
+    local tmpvar="$(make_tmpvar)"
+
+    local mktemp_cmd=(mktemp --directory)
+
+    if ! capture_output "$tmpvar" "${mktemp_cmd[@]}"; then
         forward_error "$1" "${!tmpvar}"
+        return 1
+    fi
+
+    local tmpdir="${!tmpvar}"
+
+    copy_out_result "$1" "$tmpdir"
+    return 0
+}
+
+#
+# mount_resource_spec <mount-spec | error-message out> <resource-spec> <mount-point>
+#
+mount_resource_spec() {
+    local resource_spec="$2"
+    local mount_point="$3"
+    local tmpvar="$(make_tmpvar)"
+
+    _mount_resource_spec "$tmpvar" '' "$resource_spec" "$mount_point" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+#
+# temp_mount_resource_spec <mount-spec | error-message out> <resource-spec>
+#
+temp_mount_resource_spec() {
+    local resource_spec="$2"
+    local tmpvar="$(make_tmpvar)"
+
+    make_tmpdir "$tmpvar" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local tmpdir="${!tmpvar}"
+
+    _mount_resource_spec "$tmpvar" 'temporary' "$resource_spec" "$tmpdir" || {
+        forward_error "$1" "${!tmpvar}"
+        rmdir "$tmpdir"
         return 1
     }
 

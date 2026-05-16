@@ -83,9 +83,9 @@ fsarchiver_savefs() {
 }
 
 #
-# archive_file_system <error-trace | fsa-file out> <file-system> <dst-dir>
+# archive_file_system_to_directory <error-trace | fsa-file out> <file-system> <dst-dir>
 #
-archive_file_system() {
+archive_file_system_to_directory() {
     local file_system="$2"
     local fsa_dir="$3"
 

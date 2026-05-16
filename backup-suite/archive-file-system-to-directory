@@ -77,7 +77,7 @@ get_command_line_arg 2 archive_directory
 
 printf_stderr 'Archiving "%s" to "%s".\n' "$file_system" "$archive_directory"
 
-if ! archive_file_system result "$file_system" "$archive_directory"; then
+if ! archive_file_system_to_directory result "$file_system" "$archive_directory"; then
     print_error_trace "$result"
     exit 1
 fi
