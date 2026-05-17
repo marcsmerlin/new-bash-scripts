@@ -24,11 +24,11 @@ readonly _FSA_LIB_INCLUDED=1
 
 # shellcheck source=./result_type_lib.bash
 source "$BASH_LIBS_DIR/result_type_lib.bash"
-(($? == 0 )) || return 1
+(($? == 0)) || return 1
 
 # shellcheck source=./file_system_lib.bash
 source "$BASH_LIBS_DIR/file_system_lib.bash"
-(($? == 0 )) || return 1
+(($? == 0)) || return 1
 
 #
 # fsarchiver_archinfo <error-trace out> <fsa-file>
@@ -83,6 +83,17 @@ fsarchiver_savefs() {
 }
 
 #
+# make_fsa_file_name <file-system>
+#
+make_fsa_file_name() {
+    local file_system="$1"
+    printf '%s_%s_%s.fsa\n' \
+        "$file_system" \
+        "$(date +%F)" \
+        "$(date +%H-%M)"
+}
+
+#
 # archive_file_system_to_directory <error-trace | fsa-file out> <file-system> <dst-dir>
 #
 archive_file_system_to_directory() {
@@ -98,14 +109,14 @@ archive_file_system_to_directory() {
 
     local fs_dev="${!tmpvar}"
 
-    local basename="$(date +%F-%H-%M-%S)".fsa
-    local fsa_file="$(readlink -f "$fsa_dir/$basename")"
+    local fsa_file_name="$(make_fsa_file_name "$file_system")"
+    local fsa_file_path="$(readlink -f "$fsa_dir/$fsa_file_name")"
 
-    if ! fsarchiver_savefs "$tmpvar" "$fsa_file" "$fs_dev"; then
+    if ! fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev"; then
         forward_error "$1" "${!tmpvar}"
         return 1
     fi
 
-    copy_out_result "$1" "$fsa_file"
+    copy_out_result "$1" "$fsa_file_path"
     return 0
 }
