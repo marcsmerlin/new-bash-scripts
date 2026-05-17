@@ -186,6 +186,15 @@ resource_spec_root() {
 }
 
 #
+# resource_spec_local_file_path <resource-spec> <leaf-name>
+#
+resource_spec_local_file_path() {
+    printf '%s/%s\n' \
+        "$(resource_spec_root "$1")" \
+        "$2"
+}
+
+#
 # resource_spec_label <normalized-resource-spec>
 #
 resource_spec_label() {

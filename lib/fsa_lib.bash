@@ -30,6 +30,14 @@ source "$BASH_LIBS_DIR/result_type_lib.bash"
 source "$BASH_LIBS_DIR/file_system_lib.bash"
 (($? == 0)) || return 1
 
+# shellcheck source=./resource_spec_lib.bash
+source "$BASH_LIBS_DIR/resource_spec_lib.bash"
+(($? == 0)) || return 1
+
+# shellcheck source=./mount_spec_lib.bash
+source "$BASH_LIBS_DIR/mount_spec_lib.bash"
+(($? == 0)) || return 1
+
 #
 # fsarchiver_archinfo <error-trace out> <fsa-file>
 #
@@ -86,37 +94,71 @@ fsarchiver_savefs() {
 # make_fsa_file_name <file-system>
 #
 make_fsa_file_name() {
-    local file_system="$1"
+    local fs="$1"
     printf '%s_%s_%s.fsa\n' \
-        "$file_system" \
+        "$fs" \
         "$(date +%F)" \
         "$(date +%H-%M)"
 }
 
 #
-# archive_file_system_to_directory <error-trace | fsa-file out> <file-system> <dst-dir>
+# archive_file_system <error-trace | fsa-file-name out> <file-system> <resource-spec>
 #
-archive_file_system_to_directory() {
-    local file_system="$2"
-    local fsa_dir="$3"
+archive_file_system() {
+    local fs="$2"
+    local rspec="$3"
 
     local tmpvar="$(make_tmpvar)"
 
-    if ! get_device_for_label "$tmpvar" "$file_system"; then
-        copy_out_error "$1" "${!tmpvar}"
-        return 1
-    fi
-
-    local fs_dev="${!tmpvar}"
-
-    local fsa_file_name="$(make_fsa_file_name "$file_system")"
-    local fsa_file_path="$(readlink -f "$fsa_dir/$fsa_file_name")"
-
-    if ! fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev"; then
+    get_device_for_label "$tmpvar" "$fs" || {
         forward_error "$1" "${!tmpvar}"
         return 1
+    }
+
+    local fs_dev="${!tmpvar}"
+    local fsa_file_name="$(make_fsa_file_name "$fs")"
+    local fsa_file_path
+
+    if [[ "$(resource_spec_type "$rspec")" == 'local' ]]; then
+        fsa_file_path="$(resource_spec_local_file_path "$rspec" "$fsa_file_name")"
+
+        fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+
+        copy_out_result "$1" "$fsa_file_name"
+        return 0
     fi
 
-    copy_out_result "$1" "$fsa_file_path"
+    temp_mount_resource_spec "$tmpvar" "$rspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local mspec="${!tmpvar}"
+    fsa_file_path="$(mount_spec_file_path "$mspec" "$fsa_file_name")"
+
+    fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
+        local primary_error="${!tmpvar}"
+
+        release_mount_spec "$tmpvar" "$mspec" || {
+            originate_error "$1" \
+                '%s Also failed to release archive resource: %s' \
+                "$primary_error" \
+                "${!tmpvar}"
+            return 1
+        }
+
+        forward_error "$1" "$primary_error"
+        return 1
+    }
+
+    release_mount_spec "$tmpvar" "$mspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    copy_out_result "$1" "$fsa_file_name"
     return 0
 }

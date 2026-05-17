@@ -160,6 +160,15 @@ mount_spec_working_directory() {
 }
 
 #
+# mount_spec_file_path <mount-spec> <leaf-name>
+#
+mount_spec_file_path() {
+    printf '%s/%s\n' \
+        "$(mount_spec_working_directory "$1")" \
+        "$2"
+}
+
+#
 # umount_wrapper <error-message out> <mount-point>
 #
 umount_wrapper() {
