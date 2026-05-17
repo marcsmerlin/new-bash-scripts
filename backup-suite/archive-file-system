@@ -24,18 +24,18 @@ show_help() {
 
     cat <<EOF
 Usage:
-  $command_name <file-system> <archive-directory> [OPTIONS]
+  $command_name <file-system> <resource-spec> [OPTIONS]
 
 Description:
   Create an fsa archive of the <file-system> partition,
-  saving it in <archive-directory>.
+  saving it in <resource-spec>.
 
 Arguments:
   <file-system>
       Label of the source partition to be archived.
 
-  <archive-directory>
-      Directory where the archive will be saved.
+  <resource-spec>
+      Resource-spec where the archive will be saved.
 
 Options:
   --help
@@ -45,16 +45,16 @@ EOF
 }
 
 #
-# archive-file-system <file-system> <archive-directory> [OPTIONS]
+# archive-file-system <file-system> <resource-spec> [OPTIONS]
 #
 error_trace=""
 
 getopt_spec="help"
 
-if ! register_command_line error_trace "$getopt_spec" "$@"; then
+register_command_line error_trace "$getopt_spec" "$@" || {
     print_error_trace "$error_trace"
     exit 1
-fi
+}
 
 if has_command_line_opt "help"; then
     show_help "$0"
@@ -70,26 +70,24 @@ if [[ arg_count -ne 2 ]]; then
     exit 2
 fi
 
-declare file_system user_resource_spec result
+declare file_system unvalidated_rspec rspec
 
 get_command_line_arg 1 file_system
-get_command_line_arg 2 user_resource_spec
+get_command_line_arg 2 unvalidated_rspec
 
-validate_resource_spec result "$user_resource_spec" || {
-    print_error_trace "$result"
+validate_resource_spec rspec "$unvalidated_rspec" || {
+    print_error_trace "$rspec"
     exit 1
 }
 
-resource_spec="$result"
+printf_stderr 'Archiving "%s" to "%s" ...\n' "$file_system" "$(format_resource_spec_for_display "$rspec")"
 
-printf_stderr 'Archiving "%s" to "%s".\n' "$file_system" "$(format_resource_spec_for_display "$resource_spec")"
+declare fsa_file
 
-archive_file_system result "$file_system" "$resource_spec" || {
-    print_error_trace "$result"
+archive_file_system fsa_file "$file_system" "$rspec" || {
+    print_error_trace "$fsa_file"
     exit 1
 }
 
-fsa_file="$result"
-
-printf_stderr '"%s" created.\n' "$fsa_file"
+printf_stderr '... "%s" created.\n' "$fsa_file"
 exit 0
