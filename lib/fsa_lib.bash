@@ -9,7 +9,7 @@
 }
 
 # re-source guard
-[[ ${_FSA_LIB_INCLUDED:-} ]] && return 0
+[[ ${_fsa_lib_included:-} ]] && return 0
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -20,22 +20,18 @@ source "$BASH_LIBS_DIR/system_lib.bash" || return 1
 
 readonly _FSA_LIB_DEPS=(fsarchiver)
 verify_script_dependencies "${_FSA_LIB_DEPS[@]}" || return 1
-readonly _FSA_LIB_INCLUDED=1
+readonly _fsa_lib_included=1
 
 # shellcheck source=./result_type_lib.bash
 source "$BASH_LIBS_DIR/result_type_lib.bash"
 (($? == 0)) || return 1
 
-# shellcheck source=./file_system_lib.bash
-source "$BASH_LIBS_DIR/file_system_lib.bash"
+# shellcheck source=./rspec_lib.bash
+source "$BASH_LIBS_DIR/rspec_lib.bash"
 (($? == 0)) || return 1
 
-# shellcheck source=./resource_spec_lib.bash
-source "$BASH_LIBS_DIR/resource_spec_lib.bash"
-(($? == 0)) || return 1
-
-# shellcheck source=./mount_spec_lib.bash
-source "$BASH_LIBS_DIR/mount_spec_lib.bash"
+# shellcheck source=./mspec_lib.bash
+source "$BASH_LIBS_DIR/mspec_lib.bash"
 (($? == 0)) || return 1
 
 #

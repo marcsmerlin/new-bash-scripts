@@ -9,8 +9,8 @@
 }
 
 # re-source guard
-[[ ${_RESOURCE_SPEC_LIB_INCLUDED:-} ]] && return 0
-readonly _RESOURCE_SPEC_LIB_INCLUDED=1
+[[ ${_rspec_lib_included:-} ]] && return 0
+readonly _rspec_lib_included=1
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"

@@ -11,12 +11,16 @@ readonly BASH_LIBS_DIR="$PROJECT_ROOT/lib"
 source "$BASH_LIBS_DIR/result_type_lib.bash"
 (($? == 0)) || exit 1
 
-# shellcheck source=../lib/fsa_lib.bash
-source "$BASH_LIBS_DIR/fsa_lib.bash"
-(($? == 0)) || exit 1
-
 # shellcheck source=../lib/command_line_lib.bash
 source "$BASH_LIBS_DIR/command_line_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/rspec_lib.bash
+source "$BASH_LIBS_DIR/rspec_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/fsa_lib.bash
+source "$BASH_LIBS_DIR/fsa_lib.bash"
 (($? == 0)) || exit 1
 
 show_help() {

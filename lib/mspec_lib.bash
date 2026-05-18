@@ -9,8 +9,8 @@
 }
 
 # re-source guard
-[[ ${_MOUNT_SPEC_LIB_INCLUDED:-} ]] && return
-readonly _MOUNT_SPEC_LIB_INCLUDED=1
+[[ ${_mspec_lib_included:-} ]] && return
+readonly _mspec_lib_included=1
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -20,8 +20,8 @@ fi
 source "$BASH_LIBS_DIR/result_type_lib.bash"
 (($? == 0)) || return 1
 
-# shellcheck source=./resource_spec_lib.bash
-source "$BASH_LIBS_DIR/resource_spec_lib.bash"
+# shellcheck source=./rspec_lib.bash
+source "$BASH_LIBS_DIR/rspec_lib.bash"
 (($? == 0)) || return 1
 
 # shellcheck source=./file_system_lib.bash
