@@ -25,13 +25,13 @@ source "$BASH_LIBS_DIR/result_type_lib.bash"
 (($? == 0 )) || return 1
 
 #
-# Normalized resource-spec forms:
+# Normalized rspec forms:
 #
 #   local:<absolute-path>
-#   label:<label>/<absolute-resource-spec-root-without-leading-extra-slash>
-#   nfs:<host>/<share>/<absolute-resource-spec-root-without-leading-extra-slash>
+#   label:<label>/<absolute-rspec-path-without-leading-extra-slash>
+#   nfs:<host>/<share>/<absolute-rspec-path-without-leading-extra-slash>
 #
-# Public resource_spec types:
+# Public rspec types:
 #
 #   local
 #   label
@@ -39,30 +39,29 @@ source "$BASH_LIBS_DIR/result_type_lib.bash"
 #
 
 #
-# normalize_resource_spec_root <root-path>
+# _rspec_normalize_path <path>
 #
-normalize_resource_spec_root() {
-    local root
-    root="$(trim_string "$1")"
+_rspec_normalize_path() {
+    local path
+    path="$(trim_string "$1")"
 
-    [[ -n $root ]] || {
+    [[ -n $path ]] || {
         printf '/\n'
         return 0
     }
 
-    root="$(realpath -m -- "$root")"
+    path="$(realpath -m -- "$path")"
 
-    printf '%s\n' "$root"
+    printf '%s\n' "$path"
 }
 
 #
-# validate_resource_spec <normalized-resource-spec | error-trace out> <candidate-resource-spec>
+# rspec_validate <normalized-rspec | error-trace out> <candidate-rspec>
 #
-validate_resource_spec() {
+rspec_validate() {
     local candidate
-    local type
     local body
-    local normalized_path
+    local path
     local label
     local host
     local share
@@ -71,13 +70,12 @@ validate_resource_spec() {
     candidate="$(trim_string "$2")"
 
     if [[ -z $candidate ]]; then
-        originate_error "$1" 'resource_spec is empty'
+        originate_error "$1" 'rspec is empty.'
         return 1
     fi
 
     case "$candidate" in
     label:*)
-        type="label"
         body="${candidate#label:}"
 
         label="${body%%/*}"
@@ -87,17 +85,16 @@ validate_resource_spec() {
         rest="$(trim_string "$rest")"
 
         if [[ -z $label || $label == "$body" ]]; then
-            originate_error "$1" 'label resource_spec must have form label:<label>/<path>'
+            originate_error "$1" 'rspec of type "label" must have the form label:<label>/<path>'
             return 1
         fi
 
-        normalized_path="$(normalize_resource_spec_root "/$rest")"
-        copy_out_result "$1" "label:$label$normalized_path"
+        path="$(_rspec_normalize_path "/$rest")"
+        copy_out_result "$1" "label:$label$path"
         return 0
         ;;
 
     nfs:*)
-        type="nfs"
         body="${candidate#nfs:}"
 
         host="${body%%/*}"
@@ -110,58 +107,57 @@ validate_resource_spec() {
         rest="$(trim_string "$rest")"
 
         if [[ -z $host || -z $share || $host == "$body" || $share == "$rest" ]]; then
-            originate_error "$1" 'nfs resource_spec must have form nfs:<host>/<share>/<path>'
+            originate_error "$1" 'rspec of type "nfs" must have form nfs:<host>/<share>/<path>'
             return 1
         fi
 
-        normalized_path="$(normalize_resource_spec_root "/$rest")"
-        copy_out_result "$1" "nfs:$host/$share$normalized_path"
+        path="$(_rspec_normalize_path "/$rest")"
+        copy_out_result "$1" "nfs:$host/$share$path"
         return 0
         ;;
 
     local:*)
-        type="local"
         body="${candidate#local:}"
-        normalized_path="$(normalize_resource_spec_root "$body")"
+        path="$(_rspec_normalize_path "$body")"
 
-        copy_out_result "$1" "local:$normalized_path"
+        copy_out_result "$1" "local:$path"
         return 0
         ;;
 
     *:*)
-        originate_error "$1" 'unknown resource_spec type "%s"' "${candidate%%:*}"
+        originate_error "$1" 'Unknown rspec type "%s"' "${candidate%%:*}"
         return 1
         ;;
 
     *)
-        normalized_path="$(normalize_resource_spec_root "$candidate")"
+        path="$(_rspec_normalize_path "$candidate")"
 
-        copy_out_result "$1" "local:$normalized_path"
+        copy_out_result "$1" "local:$path"
         return 0
         ;;
     esac
 }
 
 #
-# resource_spec_type <normalized-resource-spec>
+# rspec_type <rspec>
 #
-resource_spec_type() {
-    local resource_spec="$1"
+rspec_type() {
+    local rspec="$1"
 
-    printf '%s\n' "${resource_spec%%:*}"
+    printf '%s\n' "${rspec%%:*}"
 }
 
 #
-# resource_spec_root <normalized-resource-spec>
+# rspec_path <rspec>
 #
-resource_spec_root() {
-    local resource_spec="$1"
+rspec_path() {
+    local rspec="$1"
     local type
     local body
     local rest
 
-    type="$(resource_spec_type "$resource_spec")"
-    body="${resource_spec#*:}"
+    type="$(rspec_type "$rspec")"
+    body="${rspec#*:}"
 
     case "$type" in
     local)
@@ -186,22 +182,13 @@ resource_spec_root() {
 }
 
 #
-# resource_spec_local_file_path <resource-spec> <leaf-name>
+# rspec_label <rspec>
 #
-resource_spec_local_file_path() {
-    printf '%s/%s\n' \
-        "$(resource_spec_root "$1")" \
-        "$2"
-}
+rspec_label() {
+    local rspec="$1"
+    local body="${rspec#*:}"
 
-#
-# resource_spec_label <normalized-resource-spec>
-#
-resource_spec_label() {
-    local resource_spec="$1"
-    local body="${resource_spec#*:}"
-
-    if [[ $(resource_spec_type "$resource_spec") == label ]]; then
+    if [[ $(rspec_type "$rspec") == label ]]; then
         printf '%s\n' "${body%%/*}"
     else
         printf '\n'
@@ -209,13 +196,13 @@ resource_spec_label() {
 }
 
 #
-# resource_spec_host <normalized-resource-spec>
+# rspec_host <rspec>
 #
-resource_spec_host() {
-    local resource_spec="$1"
-    local body="${resource_spec#*:}"
+rspec_host() {
+    local rspec="$1"
+    local body="${rspec#*:}"
 
-    if [[ $(resource_spec_type "$resource_spec") == nfs ]]; then
+    if [[ $(rspec_type "$rspec") == nfs ]]; then
         printf '%s\n' "${body%%/*}"
     else
         printf '\n'
@@ -223,14 +210,14 @@ resource_spec_host() {
 }
 
 #
-# resource_spec_share <normalized-resource-spec>
+# rspec_share <rspec>
 #
-resource_spec_share() {
-    local resource_spec="$1"
-    local body="${resource_spec#*:}"
+rspec_share() {
+    local rspec="$1"
+    local body="${rspec#*:}"
     local rest
 
-    if [[ $(resource_spec_type "$resource_spec") == nfs ]]; then
+    if [[ $(rspec_type "$rspec") == nfs ]]; then
         rest="${body#*/}"
         printf '%s\n' "${rest%%/*}"
     else
@@ -239,8 +226,8 @@ resource_spec_share() {
 }
 
 #
-# format_resource_spec_for_display <normalized-resource-spec>
+# rspec_format <rspec>
 #
-format_resource_spec_for_display() {
+rspec_format() {
     printf '%s\n' "$1"
 }

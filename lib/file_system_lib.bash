@@ -37,3 +37,20 @@ get_device_for_label() {
     copy_out_result "$1" "$(readlink -f "$device_path")"
     return 0
 }
+
+#
+# make_tmpdir <temp-directory | error-message out>
+#
+make_tmpdir() {
+    local tmpvar="$(make_tmpvar)"
+    local mktemp_cmd=(mktemp --directory)
+
+    capture_output "$tmpvar" "${mktemp_cmd[@]}" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+

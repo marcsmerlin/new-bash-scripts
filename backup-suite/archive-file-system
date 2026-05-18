@@ -24,17 +24,17 @@ show_help() {
 
     cat <<EOF
 Usage:
-  $command_name <file-system> <resource-spec> [OPTIONS]
+  $command_name <file-system> <rspec> [OPTIONS]
 
 Description:
   Create an fsa archive of the <file-system> partition,
-  saving it in <resource-spec>.
+  saving it in <rspec>.
 
 Arguments:
   <file-system>
       Label of the source partition to be archived.
 
-  <resource-spec>
+  <rspec>
       Resource-spec where the archive will be saved.
 
 Options:
@@ -45,7 +45,7 @@ EOF
 }
 
 #
-# archive-file-system <file-system> <resource-spec> [OPTIONS]
+# archive-file-system <file-system> <rspec> [OPTIONS]
 #
 error_trace=""
 
@@ -75,12 +75,12 @@ declare file_system unvalidated_rspec rspec
 get_command_line_arg 1 file_system
 get_command_line_arg 2 unvalidated_rspec
 
-validate_resource_spec rspec "$unvalidated_rspec" || {
+rspec_validate rspec "$unvalidated_rspec" || {
     print_error_trace "$rspec"
     exit 1
 }
 
-printf_stderr 'Archiving "%s" to "%s" ...\n' "$file_system" "$(format_resource_spec_for_display "$rspec")"
+printf_stderr 'Archiving "%s" to "%s" ...\n' "$file_system" "$(rspec_format "$rspec")"
 
 declare fsa_file
 

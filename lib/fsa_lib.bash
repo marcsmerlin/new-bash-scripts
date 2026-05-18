@@ -117,18 +117,18 @@ archive_file_system() {
     local fs_dev="${!tmpvar}"
     local fsa_file_name="$(make_fsa_file_name "$fs")"
 
-    temp_mount_resource_spec "$tmpvar" "$rspec" || {
+    mspec_temp_mount_rspec "$tmpvar" "$rspec" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
     local mspec="${!tmpvar}"
-    local fsa_file_path="$(mount_spec_file_path "$mspec" "$fsa_file_name")"
+    local fsa_file_path="$(mspec_file_path "$mspec" "$fsa_file_name")"
 
     fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
         local primary_error="${!tmpvar}"
 
-        release_mount_spec "$tmpvar" "$mspec" || {
+        mspec_release "$tmpvar" "$mspec" || {
             originate_error "$1" \
                 '%s Also failed to release archive resource: %s' \
                 "$primary_error" \
@@ -140,7 +140,7 @@ archive_file_system() {
         return 1
     }
 
-    release_mount_spec "$tmpvar" "$mspec" || {
+    mspec_release "$tmpvar" "$mspec" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }

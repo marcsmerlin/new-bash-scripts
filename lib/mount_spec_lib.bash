@@ -28,7 +28,7 @@ source "$BASH_LIBS_DIR/resource_spec_lib.bash"
 source "$BASH_LIBS_DIR/file_system_lib.bash"
 (($? == 0)) || return 1
 
-# mount_spec fields:
+# mspec fields:
 #
 #   path
 #   mount-point
@@ -42,13 +42,13 @@ source "$BASH_LIBS_DIR/file_system_lib.bash"
 #
 
 #
-# _encode_mount_spec <path> <mount-point> <cleanup-action>
+# _mspec_encode <path> <mount-point> <cleanup-action>
 #
-_encode_mount_spec() {
+_mspec_encode() {
     printf '%q %q %q' "$1" "$2" "$3"
 }
 
-_split_mount_spec() {
+_mspec_split() {
     local encoded="$1"
 
     local path_out="$2"
@@ -63,78 +63,71 @@ _split_mount_spec() {
 }
 
 #
-# _make_mount_spec <mount-spec out> <path> <mount-point> <cleanup-action>
+# _mspec_make <mspec out> <path> <mount-point> <cleanup-action>
 #
-_make_mount_spec() {
-    printf -v "$1" '%s' "$(_encode_mount_spec "$2" "$3" "$4")"
+_mspec_make() {
+    printf -v "$1" '%s' "$(_mspec_encode "$2" "$3" "$4")"
 }
 
 #
-# mount_spec_path <mount-spec>
+# mspec_path <mspec>
 #
-mount_spec_path() {
+mspec_path() {
     local path
     local mount_point
     local cleanup_action
 
-    _split_mount_spec "$1" path mount_point cleanup_action
+    _mspec_split "$1" path mount_point cleanup_action
 
     printf '%s\n' "$path"
 }
 
 #
-# _mount_spec_mount_point <mount-spec>
+# _mspec_mount_point <mspec>
 #
-_mount_spec_mount_point() {
+_mspec_mount_point() {
     local path
     local mount_point
     local cleanup_action
 
-    _split_mount_spec "$1" path mount_point cleanup_action
+    _mspec_split "$1" path mount_point cleanup_action
 
     printf '%s\n' "$mount_point"
 }
 
 #
-# _mount_spec_cleanup_action <mount-spec>
+# _mspec_cleanup_action <mspec>
 #
-_mount_spec_cleanup_action() {
+_mspec_cleanup_action() {
     local path
     local mount_point
     local cleanup_action
 
-    _split_mount_spec "$1" path mount_point cleanup_action
+    _mspec_split "$1" path mount_point cleanup_action
 
     printf '%s\n' "$cleanup_action"
 }
 
 #
-# format_mount_spec_for_display <mount-spec>
+# mspec_format <mspec>
 #
-format_mount_spec_for_display() {
-    mount_spec_path "$1"
+mspec_format() {
+    mspec_path "$1"
 }
 
 #
-# mount_spec_working_directory <mount-spec>
+# mspec_file_path <mspec> <leaf-name>
 #
-mount_spec_working_directory() {
-    mount_spec_path "$1"
-}
-
-#
-# mount_spec_file_path <mount-spec> <leaf-name>
-#
-mount_spec_file_path() {
+mspec_file_path() {
     printf '%s/%s\n' \
-        "$(mount_spec_path "$1")" \
+        "$(mspec_path "$1")" \
         "$2"
 }
 
 #
-# umount_wrapper <error-message out> <mount-point>
+# _mspec_umount_wrapper <error-message out> <mount-point>
 #
-umount_wrapper() {
+_mspec_umount_wrapper() {
     local mount_point="$2"
     local tmpvar="$(make_tmpvar)"
 
@@ -154,17 +147,17 @@ umount_wrapper() {
 }
 
 #
-# release_mount_spec <error-message out> <mount-spec>
+# mspec_release <error-message out> <mspec>
 #
-# Typical use: release_mount_spec "$1" "$mount_spec" || return "$?"
+# Typical use: mspec_release "$1" "$mspec" || return "$?"
 #
-release_mount_spec() {
+mspec_release() {
     local path
     local mount_point
     local cleanup_action
     local tmpvar="$(make_tmpvar)"
 
-    _split_mount_spec "$2" path mount_point cleanup_action
+    _mspec_split "$2" path mount_point cleanup_action
 
     case "$cleanup_action" in
     none)
@@ -172,7 +165,7 @@ release_mount_spec() {
         ;;
 
     umount)
-        umount_wrapper "$tmpvar" "$mount_point" || {
+        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -180,7 +173,7 @@ release_mount_spec() {
         ;;
 
     umount-rmdir)
-        umount_wrapper "$tmpvar" "$mount_point" || {
+        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -197,7 +190,7 @@ release_mount_spec() {
 
     *)
         originate_error "$1" \
-            'Unknown mount_spec cleanup action "%s".' \
+            'Unknown mspec cleanup action "%s".' \
             "$cleanup_action"
         return 1
         ;;
@@ -205,18 +198,18 @@ release_mount_spec() {
 }
 
 #
-# _get_device_for_resource_spec <device | error-message out> <resource-spec>
+# _mspec_get_device_for_rspec <device | error-message out> <rspec>
 #
-_get_device_for_resource_spec() {
-    local resource_spec="$2"
-    local type="$(resource_spec_type "$resource_spec")"
+_mspec_get_device_for_rspec() {
+    local rspec="$2"
+    local type="$(rspec_type "$rspec")"
 
     case "$type" in
     label)
         local tmpvar="$(make_tmpvar)"
 
         get_device_for_label "$tmpvar" \
-            "$(resource_spec_label "$resource_spec")" || {
+            "$(rspec_label "$rspec")" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -226,8 +219,8 @@ _get_device_for_resource_spec() {
         ;;
 
     nfs)
-        local host="$(resource_spec_host "$resource_spec")"
-        local share="$(resource_spec_share "$resource_spec")"
+        local host="$(rspec_host "$rspec")"
+        local share="$(rspec_share "$rspec")"
 
         # Current NFS locator policy: shares are exported under /nfs.
         copy_out_result "$1" "$host:/nfs/$share"
@@ -237,7 +230,7 @@ _get_device_for_resource_spec() {
     *)
         originate_error "$1" \
             'There is no mount device for resource "%s" of type "%s".' \
-            "$(format_resource_spec_for_display "$resource_spec")" \
+            "$(rspec_format "$rspec")" \
             "$type"
         return 1
         ;;
@@ -246,9 +239,9 @@ _get_device_for_resource_spec() {
 }
 
 #
-# mount_wrapper <error-message out> <source> <target> [<mount-options>]
+# _mspec_mount_wrapper <error-message out> <source> <target> [<mount-options>]
 #
-mount_wrapper() {
+_mspec_mount_wrapper() {
     local mount_output
     local mount_cmd=(mount)
 
@@ -271,17 +264,17 @@ mount_wrapper() {
 }
 
 #
-# _mount_resource_spec <mount-spec | error-message out> <cleanup-action> <resource-spec> <mount-point> [<mount-options>]
+# _mspec_mount_rspec <mspec | error-message out> <cleanup-action> <rspec> <mount-point> [<mount-options>]
 #
-_mount_resource_spec() {
+_mspec_mount_rspec() {
     local cleanup_action="$2"
-    local resource_spec="$3"
+    local rspec="$3"
     local mount_point="$4"
     local tmpvar="$(make_tmpvar)"
 
-    if [[ "$(resource_spec_type "$resource_spec")" == local ]]; then
-        _make_mount_spec "$tmpvar" \
-            "$(resource_spec_root "$resource_spec")" \
+    if [[ "$(rspec_type "$rspec")" == local ]]; then
+        _mspec_make "$tmpvar" \
+            "$(rspec_path "$rspec")" \
             '' \
             none
 
@@ -291,28 +284,28 @@ _mount_resource_spec() {
 
     local device
 
-    _get_device_for_resource_spec "$tmpvar" "$resource_spec" || {
+    _mspec_get_device_for_rspec "$tmpvar" "$rspec" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
     device="${!tmpvar}"
 
-    mount_wrapper "$tmpvar" "$device" "$mount_point" "${5:-}" || {
+    _mspec_mount_wrapper "$tmpvar" "$device" "$mount_point" "${5:-}" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
-    local required_directory="$mount_point$(resource_spec_root "$resource_spec")"
+    local required_directory="$mount_point$(rspec_path "$rspec")"
 
     [[ -d "$required_directory" ]] || {
         local error_message
 
         printf -v error_message \
             'Required directory for resource "%s" does not exist.' \
-            "$(format_resource_spec_for_display "$resource_spec")"
+            "$(rspec_format "$rspec")"
 
-        umount_wrapper "$tmpvar" "$mount_point" || {
+        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
             originate_error "$1" \
                 '%s Also failed to unmount mount point "%s": %s' \
                 "$error_message" \
@@ -326,7 +319,7 @@ _mount_resource_spec() {
         return 1
     }
 
-    _make_mount_spec "$tmpvar" \
+    _mspec_make "$tmpvar" \
         "$required_directory" \
         "$mount_point" \
         "$cleanup_action"
@@ -336,30 +329,14 @@ _mount_resource_spec() {
 }
 
 #
-# make_tmpdir <temp-directory | error-message out>
+# mspec_mount_rspec <mspec | error-message out> <rspec> <mount-point> [<mount-options>]
 #
-make_tmpdir() {
-    local tmpvar="$(make_tmpvar)"
-    local mktemp_cmd=(mktemp --directory)
-
-    capture_output "$tmpvar" "${mktemp_cmd[@]}" || {
-        forward_error "$1" "${!tmpvar}"
-        return 1
-    }
-
-    copy_out_result "$1" "${!tmpvar}"
-    return 0
-}
-
-#
-# mount_resource_spec <mount-spec | error-message out> <resource-spec> <mount-point> [<mount-options>]
-#
-mount_resource_spec() {
-    local resource_spec="$2"
+mspec_mount_rspec() {
+    local rspec="$2"
     local mount_point="$3"
     local tmpvar="$(make_tmpvar)"
 
-    _mount_resource_spec "$tmpvar" umount "$resource_spec" "$mount_point" "${4:-}" || {
+    _mspec_mount_rspec "$tmpvar" umount "$rspec" "$mount_point" "${4:-}" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
@@ -369,14 +346,14 @@ mount_resource_spec() {
 }
 
 #
-# temp_mount_resource_spec <mount-spec | error-message out> <resource-spec> [<mount-options>]
+# mspec_temp_mount_rspec <mspec | error-message out> <rspec> [<mount-options>]
 #
-temp_mount_resource_spec() {
-    local resource_spec="$2"
+mspec_temp_mount_rspec() {
+    local rspec="$2"
     local tmpvar="$(make_tmpvar)"
 
-    if [[ "$(resource_spec_type "$resource_spec")" == local ]]; then
-        _mount_resource_spec "$tmpvar" none "$resource_spec" '' "${3:-}" || {
+    if [[ "$(rspec_type "$rspec")" == local ]]; then
+        _mspec_mount_rspec "$tmpvar" none "$rspec" '' "${3:-}" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -392,7 +369,7 @@ temp_mount_resource_spec() {
 
     local tmpdir="${!tmpvar}"
 
-    _mount_resource_spec "$tmpvar" umount-rmdir "$resource_spec" "$tmpdir" "${3:-}" || {
+    _mspec_mount_rspec "$tmpvar" umount-rmdir "$rspec" "$tmpdir" "${3:-}" || {
         forward_error "$1" "${!tmpvar}"
         rmdir "$tmpdir"
         return 1
