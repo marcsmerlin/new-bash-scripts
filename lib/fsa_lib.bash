@@ -107,7 +107,6 @@ make_fsa_file_name() {
 archive_file_system() {
     local fs="$2"
     local rspec="$3"
-
     local tmpvar="$(make_tmpvar)"
 
     get_device_for_label "$tmpvar" "$fs" || {
@@ -117,19 +116,6 @@ archive_file_system() {
 
     local fs_dev="${!tmpvar}"
     local fsa_file_name="$(make_fsa_file_name "$fs")"
-    local fsa_file_path
-
-    if [[ "$(resource_spec_type "$rspec")" == 'local' ]]; then
-        fsa_file_path="$(resource_spec_local_file_path "$rspec" "$fsa_file_name")"
-
-        fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
-            forward_error "$1" "${!tmpvar}"
-            return 1
-        }
-
-        copy_out_result "$1" "$fsa_file_name"
-        return 0
-    fi
 
     temp_mount_resource_spec "$tmpvar" "$rspec" || {
         forward_error "$1" "${!tmpvar}"
@@ -137,7 +123,7 @@ archive_file_system() {
     }
 
     local mspec="${!tmpvar}"
-    fsa_file_path="$(mount_spec_file_path "$mspec" "$fsa_file_name")"
+    local fsa_file_path="$(mount_spec_file_path "$mspec" "$fsa_file_name")"
 
     fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
         local primary_error="${!tmpvar}"

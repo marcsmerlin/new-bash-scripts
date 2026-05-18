@@ -30,133 +30,96 @@ source "$BASH_LIBS_DIR/file_system_lib.bash"
 
 # mount_spec fields:
 #
+#   path
 #   mount-point
-#   root
-#   temporary-flag
-#   resource-spec
+#   cleanup-action
 #
-# temporary-flag values:
+# cleanup-action values:
 #
-#   ''
-#   temporary
+#   none
+#   umount
+#   umount-rmdir
 #
 
-# _encode_mount_spec <mount-point> <root> <temporary-flag> <resource-spec>
+#
+# _encode_mount_spec <path> <mount-point> <cleanup-action>
 #
 _encode_mount_spec() {
-    printf '%q %q %q %q' "$1" "$2" "$3" "$4"
+    printf '%q %q %q' "$1" "$2" "$3"
 }
 
-# _build_mount_spec <mount-spec | error-message out> <mount-point> <resource-spec> <temporary-flag>
+_split_mount_spec() {
+    local encoded="$1"
+
+    local path_out="$2"
+    local mount_point_out="$3"
+    local cleanup_action_out="$4"
+
+    eval "set -- $encoded"
+
+    printf -v "$path_out" '%s' "$1"
+    printf -v "$mount_point_out" '%s' "$2"
+    printf -v "$cleanup_action_out" '%s' "$3"
+}
+
 #
-_build_mount_spec() {
-    local mount_point="$2"
-    local resource_spec="$3"
-    local temporary_flag="$4"
-    local resource_type
-    local resource_root
-    local root
-
-    resource_type="$(resource_spec_type "$resource_spec")"
-
-    [[ "$resource_type" != local ]] || {
-        originate_error "$1" \
-            'Cannot build mount_spec from local resource "%s".' \
-            "$(format_resource_spec_for_display "$resource_spec")"
-        return 1
-    }
-
-    resource_root="$(resource_spec_root "$resource_spec")"
-
-    case "$resource_root" in
-    /)
-        root="$mount_point"
-        ;;
-    /*)
-        root="$mount_point$resource_root"
-        ;;
-    *)
-        root="$mount_point/$resource_root"
-        ;;
-    esac
-
-    copy_out_result "$1" \
-        "$(_encode_mount_spec "$mount_point" "$root" "$temporary_flag" "$resource_spec")"
-
-    return 0
-}
-
-# _make_mount_spec <mount-spec | error-message out> <mount-point> <resource-spec>
+# _make_mount_spec <mount-spec out> <path> <mount-point> <cleanup-action>
 #
 _make_mount_spec() {
-    _build_mount_spec "$1" "$2" "$3" '' || {
-        forward_error "$1" "$1"
-        return 1
-    }
-
-    return 0
-}
-
-# _make_temp_mount_spec <mount-spec | error-message out> <mount-point> <resource-spec>
-#
-_make_temp_mount_spec() {
-    _build_mount_spec "$1" "$2" "$3" temporary || {
-        forward_error "$1" "$1"
-        return 1
-    }
-
-    return 0
+    printf -v "$1" '%s' "$(_encode_mount_spec "$2" "$3" "$4")"
 }
 
 #
-# mount_spec_mount_point <mount-spec>
+# mount_spec_path <mount-spec>
 #
-mount_spec_mount_point() {
-    eval "set -- $1"
+mount_spec_path() {
+    local path
+    local mount_point
+    local cleanup_action
 
-    printf '%s\n' "$1"
-}
+    _split_mount_spec "$1" path mount_point cleanup_action
 
-# mount_spec_root <mount-spec>
-#
-mount_spec_root() {
-    eval "set -- $1"
-
-    printf '%s\n' "$2"
-}
-
-# _is_temp_mount_spec <mount-spec>
-#
-_is_temp_mount_spec() {
-    eval "set -- $1"
-
-    [[ "$3" == temporary ]]
+    printf '%s\n' "$path"
 }
 
 #
-# _mount_spec_resource_spec <mount-spec>
+# _mount_spec_mount_point <mount-spec>
 #
-_mount_spec_resource_spec() {
-    eval "set -- $1"
+_mount_spec_mount_point() {
+    local path
+    local mount_point
+    local cleanup_action
 
-    printf '%s\n' "$4"
+    _split_mount_spec "$1" path mount_point cleanup_action
+
+    printf '%s\n' "$mount_point"
+}
+
+#
+# _mount_spec_cleanup_action <mount-spec>
+#
+_mount_spec_cleanup_action() {
+    local path
+    local mount_point
+    local cleanup_action
+
+    _split_mount_spec "$1" path mount_point cleanup_action
+
+    printf '%s\n' "$cleanup_action"
 }
 
 #
 # format_mount_spec_for_display <mount-spec>
 #
 format_mount_spec_for_display() {
-    format_resource_spec_for_display \
-        "$(_mount_spec_resource_spec "$1")"
+    mount_spec_path "$1"
 }
 
 #
 # mount_spec_working_directory <mount-spec>
 #
 mount_spec_working_directory() {
-    eval "set -- $1"
-
-    printf '%s\n' "$2"
+    mount_spec_path "$1"
 }
 
 #
@@ -164,7 +127,7 @@ mount_spec_working_directory() {
 #
 mount_spec_file_path() {
     printf '%s/%s\n' \
-        "$(mount_spec_working_directory "$1")" \
+        "$(mount_spec_path "$1")" \
         "$2"
 }
 
@@ -196,24 +159,49 @@ umount_wrapper() {
 # Typical use: release_mount_spec "$1" "$mount_spec" || return "$?"
 #
 release_mount_spec() {
-    local mount_point="$(mount_spec_mount_point "$2")"
+    local path
+    local mount_point
+    local cleanup_action
     local tmpvar="$(make_tmpvar)"
 
-    umount_wrapper "$tmpvar" "$mount_point" || {
-        forward_error "$1" "${!tmpvar}"
-        return 1
-    }
+    _split_mount_spec "$2" path mount_point cleanup_action
 
-    if _is_temp_mount_spec "$2"; then
+    case "$cleanup_action" in
+    none)
+        return 0
+        ;;
+
+    umount)
+        umount_wrapper "$tmpvar" "$mount_point" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+        return 0
+        ;;
+
+    umount-rmdir)
+        umount_wrapper "$tmpvar" "$mount_point" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+
         rmdir "$mount_point" || {
             originate_error "$1" \
                 'Failed to remove temporary mount point directory "%s".' \
                 "$mount_point"
             return 1
         }
-    fi
 
-    return 0
+        return 0
+        ;;
+
+    *)
+        originate_error "$1" \
+            'Unknown mount_spec cleanup action "%s".' \
+            "$cleanup_action"
+        return 1
+        ;;
+    esac
 }
 
 #
@@ -227,11 +215,11 @@ _get_device_for_resource_spec() {
     label)
         local tmpvar="$(make_tmpvar)"
 
-        if ! get_device_for_label "$tmpvar" \
-            "$(resource_spec_label "$resource_spec")"; then
+        get_device_for_label "$tmpvar" \
+            "$(resource_spec_label "$resource_spec")" || {
             forward_error "$1" "${!tmpvar}"
             return 1
-        fi
+        }
 
         copy_out_result "$1" "${!tmpvar}"
         return 0
@@ -283,13 +271,24 @@ mount_wrapper() {
 }
 
 #
-# _mount_resource_spec <mount-spec | error-message out> <temporary-flag> <resource-spec> <mount-point> [<mount-options>]
+# _mount_resource_spec <mount-spec | error-message out> <cleanup-action> <resource-spec> <mount-point> [<mount-options>]
 #
 _mount_resource_spec() {
-    local temporary_flag="$2"
+    local cleanup_action="$2"
     local resource_spec="$3"
     local mount_point="$4"
     local tmpvar="$(make_tmpvar)"
+
+    if [[ "$(resource_spec_type "$resource_spec")" == local ]]; then
+        _make_mount_spec "$tmpvar" \
+            "$(resource_spec_root "$resource_spec")" \
+            '' \
+            none
+
+        copy_out_result "$1" "${!tmpvar}"
+        return 0
+    fi
+
     local device
 
     _get_device_for_resource_spec "$tmpvar" "$resource_spec" || {
@@ -327,18 +326,10 @@ _mount_resource_spec() {
         return 1
     }
 
-    if [[ $temporary_flag == temporary ]]; then
-        _make_temp_mount_spec "$tmpvar" "$mount_point" "$resource_spec" || {
-            forward_error "$1" "${!tmpvar}"
-            return 1
-        }
-
-    else
-        _make_mount_spec "$tmpvar" "$mount_point" "$resource_spec" || {
-            forward_error "$1" "${!tmpvar}"
-            return 1
-        }
-    fi
+    _make_mount_spec "$tmpvar" \
+        "$required_directory" \
+        "$mount_point" \
+        "$cleanup_action"
 
     copy_out_result "$1" "${!tmpvar}"
     return 0
@@ -349,29 +340,9 @@ _mount_resource_spec() {
 #
 make_tmpdir() {
     local tmpvar="$(make_tmpvar)"
-
     local mktemp_cmd=(mktemp --directory)
 
-    if ! capture_output "$tmpvar" "${mktemp_cmd[@]}"; then
-        forward_error "$1" "${!tmpvar}"
-        return 1
-    fi
-
-    local tmpdir="${!tmpvar}"
-
-    copy_out_result "$1" "$tmpdir"
-    return 0
-}
-
-#
-# mount_resource_spec <mount-spec | error-message out> <resource-spec> <mount-point>
-#
-mount_resource_spec() {
-    local resource_spec="$2"
-    local mount_point="$3"
-    local tmpvar="$(make_tmpvar)"
-
-    _mount_resource_spec "$tmpvar" '' "$resource_spec" "$mount_point" || {
+    capture_output "$tmpvar" "${mktemp_cmd[@]}" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
@@ -381,11 +352,38 @@ mount_resource_spec() {
 }
 
 #
-# temp_mount_resource_spec <mount-spec | error-message out> <resource-spec>
+# mount_resource_spec <mount-spec | error-message out> <resource-spec> <mount-point> [<mount-options>]
+#
+mount_resource_spec() {
+    local resource_spec="$2"
+    local mount_point="$3"
+    local tmpvar="$(make_tmpvar)"
+
+    _mount_resource_spec "$tmpvar" umount "$resource_spec" "$mount_point" "${4:-}" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+#
+# temp_mount_resource_spec <mount-spec | error-message out> <resource-spec> [<mount-options>]
 #
 temp_mount_resource_spec() {
     local resource_spec="$2"
     local tmpvar="$(make_tmpvar)"
+
+    if [[ "$(resource_spec_type "$resource_spec")" == local ]]; then
+        _mount_resource_spec "$tmpvar" none "$resource_spec" '' "${3:-}" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+
+        copy_out_result "$1" "${!tmpvar}"
+        return 0
+    fi
 
     make_tmpdir "$tmpvar" || {
         forward_error "$1" "${!tmpvar}"
@@ -394,7 +392,7 @@ temp_mount_resource_spec() {
 
     local tmpdir="${!tmpvar}"
 
-    _mount_resource_spec "$tmpvar" 'temporary' "$resource_spec" "$tmpdir" || {
+    _mount_resource_spec "$tmpvar" umount-rmdir "$resource_spec" "$tmpdir" "${3:-}" || {
         forward_error "$1" "${!tmpvar}"
         rmdir "$tmpdir"
         return 1
