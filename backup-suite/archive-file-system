@@ -7,12 +7,12 @@ readonly SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 readonly PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 readonly BASH_LIBS_DIR="$PROJECT_ROOT/lib"
 
-# shellcheck source=../lib/result_type_lib.bash
-source "$BASH_LIBS_DIR/result_type_lib.bash"
-(($? == 0)) || exit 1
-
 # shellcheck source=../lib/command_line_lib.bash
 source "$BASH_LIBS_DIR/command_line_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/result_type_lib.bash
+source "$BASH_LIBS_DIR/result_type_lib.bash"
 (($? == 0)) || exit 1
 
 # shellcheck source=../lib/rspec_lib.bash
@@ -29,17 +29,6 @@ show_help() {
     cat <<EOF
 Usage:
   $command_name <file-system> <rspec> [OPTIONS]
-
-Description:
-  Create an fsa archive of the <file-system> partition,
-  saving it in <rspec>.
-
-Arguments:
-  <file-system>
-      Label of the source partition to be archived.
-
-  <rspec>
-      Resource-spec where the archive will be saved.
 
 Options:
   --help
