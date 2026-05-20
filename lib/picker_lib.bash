@@ -65,7 +65,7 @@ _pick_entry_from_collection() {
 
     for ((index = 0; index < number_of_entries; index++)); do
         eval "entry=\"\${${tmpvar}[$index]}\""
-        printf_stderr '%d) %s\n' "$index" "$entry"
+        printf_stderr '%d) %s\n' "$index" "$(basename "$entry")"
     done
 
     read_integer_input index "$prompt" 0 "$((number_of_entries - 1))" && {
