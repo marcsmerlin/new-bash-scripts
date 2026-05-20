@@ -38,7 +38,7 @@ EOF
 }
 
 #
-# archive-file-system <file-system> <rspec> [OPTIONS]
+# create-fsa-file <file-system> <rspec> [OPTIONS]
 #
 error_trace=""
 
