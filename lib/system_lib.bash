@@ -71,3 +71,52 @@ verify_script_dependencies() {
 
     return 0
 }
+
+#
+# verify_integer_input <input> <minimum> <maximum>
+#
+verify_integer_input() {
+    local input="$1"
+    local minimum="$2"
+    local maximum="$3"
+
+    [[ "$input" =~ ^[0-9]+$ ]] && ((input >= minimum)) && ((input <= maximum))
+}
+
+#
+# read_integer_input <integer out> <prompt> <miniumum> <maximum>
+#
+read_integer_input() {
+    local prompt="$2"
+    local minimum="$3"
+    local maximum="$4"
+
+    local input
+    read -rp "$prompt" input
+
+    if ! verify_integer_input "$input" "$minimum" "$maximum"; then
+        rc=1
+    else
+        printf -v "$1" '%d' "$input"
+        rc=0
+    fi
+
+    return "$rc"
+}
+
+#
+# request_confirmation <prompt>
+#
+request_confirmation() {
+    local prompt="$1"
+
+    local response
+
+    read -rp "$prompt" response
+
+    # normalize to lowercase
+    response=${response,,}
+
+    [[ "$response" == "y" || "$response" == "yes" ]]
+}
+
