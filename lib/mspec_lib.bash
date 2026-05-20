@@ -2,12 +2,6 @@
 # shellcheck disable=SC2155
 # shellcheck disable=SC2181
 
-# execution guard
-[[ "${BASH_SOURCE[0]}" != "$0" ]] || {
-    echo "$(basename "${BASH_SOURCE[0]}") must be sourced." >&2
-    exit 1
-}
-
 # re-source guard
 [[ ${_mspec_lib_included:-} ]] && return
 readonly _mspec_lib_included=1

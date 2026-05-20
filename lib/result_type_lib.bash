@@ -1,11 +1,5 @@
 # shellcheck shell=bash
 
-# execution guard
-[[ "${BASH_SOURCE[0]}" != "$0" ]] || {
-    echo "$(basename "${BASH_SOURCE[0]}") must be sourced." >&2
-    exit 1
-}
-
 # re-source guard
 [[ ${_RESULT_TYPE_LIB_INCLUDED:-} ]] && return 0
 readonly _RESULT_TYPE_LIB_INCLUDED=1
