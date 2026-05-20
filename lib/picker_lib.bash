@@ -18,11 +18,11 @@ source "$BASH_LIBS_DIR/system_lib.bash"
 (($? == 0)) || return 1
 
 #
-# _collect_entries_from_directory <error-message out> <directory> <extension> <collection>
+# _collect_entries_from_directory <error-message out> <directory> <predicate> <collection>
 #
 _collect_entries_from_directory() {
     local directory="$2"
-    local extension="$3"
+    local predicate="$3"
 
     [[ -d "$directory" ]] || {
         originate_error "$1" 'Directory "%s" does not exist.' "$directory"
@@ -34,9 +34,12 @@ _collect_entries_from_directory() {
 
     shopt -s nullglob
 
-    for entry in "$directory"/*."$extension"; do
+    for entry in "$directory"/*; do
+        "$predicate" "$entry" || continue
         selection_out+=("$entry")
     done
+
+    shopt -u nullglob
 
     return 0
 }
@@ -65,7 +68,7 @@ _pick_entry_from_collection() {
         printf_stderr '%d) %s\n' "$index" "$entry"
     done
 
-    read_integer_input index "$prompt" 0 "$(( number_of_entries - 1))" && {
+    read_integer_input index "$prompt" 0 "$((number_of_entries - 1))" && {
         eval "entry=\"\${${tmpvar}[$index]}\""
         printf '%s\n' "$entry"
         return
@@ -76,22 +79,22 @@ _pick_entry_from_collection() {
 }
 
 #
-# pick_entry_from_directory <selected_file | error-message out> <prompt> <directory> <extension>
+# pick_entry_from_directory <picked_entry | error-message out> <prompt> <directory> <predicate>
 #
 # shellcheck disable=SC2034
 pick_entry_from_directory() {
     local prompt="$2"
     local directory="$3"
-    local extension="$4"
+    local predicate="$4"
     local tmpvar="$(make_tmpvar)"
     local -a collection
 
-    _collect_entries_from_directory "$tmpvar" "$directory" "$extension" collection || {
+    _collect_entries_from_directory "$tmpvar" "$directory" "$predicate" collection || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
-    local selected_file="$(_pick_entry_from_collection "$prompt" collection)"
-    copy_out_result "$1" "$selected_file"
+    local picked_entry="$(_pick_entry_from_collection "$prompt" collection)"
+    copy_out_result "$1" "$picked_entry"
     return 0
 }
