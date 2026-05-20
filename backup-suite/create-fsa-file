@@ -75,12 +75,13 @@ rspec_validate rspec "$unvalidated_rspec" || {
 
 printf_stderr 'Archiving "%s" to "%s" ...\n' "$file_system" "$(rspec_format "$rspec")"
 
-declare fsa_file
+declare result fsa_file_name
 
-archive_file_system fsa_file "$file_system" "$rspec" || {
-    print_error_trace "$fsa_file"
+create_fsa_file result "$file_system" "$rspec" || {
+    print_error_trace "$result"
     exit 1
 }
 
-printf_stderr '... "%s" created.\n' "$fsa_file"
+fsa_file_name="$result"
+printf_stderr '... "%s" created.\n' "$fsa_file_name"
 exit 0

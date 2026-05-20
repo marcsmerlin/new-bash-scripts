@@ -105,9 +105,9 @@ make_fsa_file_name() {
 }
 
 #
-# archive_file_system <error-trace | fsa-file-name out> <file-system> <resource-spec>
+# create_fsa_file <error-trace | fsa-file-name out> <file-system> <resource-spec>
 #
-archive_file_system() {
+create_fsa_file() {
     local fs="$2"
     local rspec="$3"
     local tmpvar="$(make_tmpvar)"
