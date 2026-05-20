@@ -87,6 +87,13 @@ fsarchiver_savefs() {
 }
 
 #
+# is_fsa_file <file-name>
+#
+is_fsa_file() {
+    [[ -f "$1" && "$1" == *.fsa ]]
+}
+
+#
 # make_fsa_file_name <file-system>
 #
 make_fsa_file_name() {
