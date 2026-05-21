@@ -50,9 +50,9 @@ _rspec_normalize_path() {
 }
 
 #
-# rspec_validate <normalized-rspec | error-trace out> <candidate-rspec>
+# rspec_normalize <normalized-rspec | error-trace out> <candidate-rspec>
 #
-rspec_validate() {
+rspec_normalize() {
     local candidate
     local body
     local path

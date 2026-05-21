@@ -92,14 +92,14 @@ is_fsa_file() {
 }
 
 #
-# make_fsa_file_name <file-system>
+# _make_fsa_file_name <file-system>
 #
-make_fsa_file_name() {
+_make_fsa_file_name() {
     local file_system="$1"
     printf '%s_%s_%s.fsa\n' \
         "$file_system" \
         "$(date +%F)" \
-        "$(date +%H-%M)"
+        "$(date +%H-%M-%S)"
 }
 
 #
@@ -116,7 +116,7 @@ create_fsa_file() {
     }
 
     local fs_dev="${!tmpvar}"
-    local fsa_file_name="$(make_fsa_file_name "$file_system")"
+    local fsa_file_name="$(_make_fsa_file_name "$file_system")"
 
     mspec_temp_mount_rspec "$tmpvar" "$rspec" || {
         forward_error "$1" "${!tmpvar}"

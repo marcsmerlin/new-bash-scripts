@@ -63,12 +63,12 @@ if [[ arg_count -ne 2 ]]; then
     exit 2
 fi
 
-declare file_system unvalidated_rspec rspec
+declare file_system raw_rspec rspec
 
 get_command_line_arg 1 file_system
-get_command_line_arg 2 unvalidated_rspec
+get_command_line_arg 2 raw_rspec
 
-rspec_validate rspec "$unvalidated_rspec" || {
+rspec_normalize rspec "$raw_rspec" || {
     print_error_trace "$rspec"
     exit 1
 }
