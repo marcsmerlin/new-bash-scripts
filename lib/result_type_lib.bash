@@ -73,3 +73,50 @@ capture_output() {
 print_error_trace() {
     printf '%s\n' "$1" >&2
 }
+
+#
+# defer_forward_error <error-trace out> <trigger-error-trace> <command> [args...]
+#
+# shellcheck disable=SC2155
+defer_forward_error() {
+    local trigger_error_trace="$2"
+    local command="$3"
+    local tmpvar="$(make_tmpvar)"
+    local -a command_args=( "${@:4}" )
+
+    "$command" "$tmpvar" "${command_args[@]}" || {
+        printf -v "$1" \
+            '%s\n%s: while deferring error, subsequent command also failed\n%s' \
+            "$trigger_error_trace" \
+            "${FUNCNAME[0]}" \
+            "${!tmpvar}"
+        return 0
+    }
+
+    forward_error "$1" "$trigger_error_trace"
+    return 0
+}
+
+#
+# defer_originate_error <error-trace out> <trigger-error-message> <command> [args...]
+#
+# shellcheck disable=SC2155
+defer_originate_error() {
+    local trigger_error_message="$2"
+    local command="$3"
+    local tmpvar="$(make_tmpvar)"
+    local -a command_args=( "${@:4}" )
+
+    "$command" "$tmpvar" "${command_args[@]}" || {
+        printf -v "$1" \
+            '%s: %s\n%s: while deferring error, subsequent command also failed\n%s' \
+            "${FUNCNAME[0]}" \
+            "$trigger_error_message" \
+            "${FUNCNAME[0]}" \
+            "${!tmpvar}"
+        return 0
+    }
+
+    originate_error "$1" '%s' "$trigger_error_message"
+    return 0
+}

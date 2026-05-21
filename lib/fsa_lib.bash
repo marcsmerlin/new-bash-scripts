@@ -91,9 +91,9 @@ is_fsa_file() {
 # make_fsa_file_name <file-system>
 #
 make_fsa_file_name() {
-    local fs="$1"
+    local file_system="$1"
     printf '%s_%s_%s.fsa\n' \
-        "$fs" \
+        "$file_system" \
         "$(date +%F)" \
         "$(date +%H-%M)"
 }
@@ -102,17 +102,17 @@ make_fsa_file_name() {
 # create_fsa_file <error-trace | fsa-file-name out> <file-system> <resource-spec>
 #
 create_fsa_file() {
-    local fs="$2"
+    local file_system="$2"
     local rspec="$3"
     local tmpvar="$(make_tmpvar)"
 
-    get_device_for_label "$tmpvar" "$fs" || {
+    get_device_for_label "$tmpvar" "$file_system" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
     local fs_dev="${!tmpvar}"
-    local fsa_file_name="$(make_fsa_file_name "$fs")"
+    local fsa_file_name="$(make_fsa_file_name "$file_system")"
 
     mspec_temp_mount_rspec "$tmpvar" "$rspec" || {
         forward_error "$1" "${!tmpvar}"
@@ -123,17 +123,12 @@ create_fsa_file() {
     local fsa_file_path="$(mspec_file_path "$mspec" "$fsa_file_name")"
 
     fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
-        local primary_error="${!tmpvar}"
+        local trigger_error="${!tmpvar}"
 
-        mspec_release "$tmpvar" "$mspec" || {
-            originate_error "$1" \
-                '%s Also failed to release archive resource: %s' \
-                "$primary_error" \
-                "${!tmpvar}"
-            return 1
-        }
+        defer_forward_error "$1" \
+            "$trigger_error" \
+            mspec_release "$mspec"
 
-        forward_error "$1" "$primary_error"
         return 1
     }
 
