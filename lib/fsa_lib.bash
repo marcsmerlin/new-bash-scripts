@@ -28,6 +28,10 @@ source "$BASH_LIBS_DIR/rspec_lib.bash"
 source "$BASH_LIBS_DIR/mspec_lib.bash"
 (($? == 0)) || return 1
 
+# shellcheck source=./picker_lib.bash
+source "$BASH_LIBS_DIR/picker_lib.bash"
+(($? == 0)) || return 1
+
 #
 # fsarchiver_archinfo <error-trace out> <fsa-file>
 #
@@ -138,5 +142,50 @@ create_fsa_file() {
     }
 
     copy_out_result "$1" "$fsa_file_name"
+    return 0
+}
+
+#
+# inspect_fsa_file <error-trace out> <resource-spec>
+#
+inspect_fsa_file() {
+    local rspec="$2"
+    local tmpvar="$(make_tmpvar)"
+
+    mspec_temp_mount_rspec "$tmpvar" "$rspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local mspec="${!tmpvar}"
+    local directory="$(mspec_path "$mspec")"
+
+    pick_entry_from_directory "$tmpvar" 'index of file to inspect? ' "$directory" is_fsa_file || {
+        defer_forward_error "$1" \
+            "${!tmpvar}" \
+            mspec_release "$mspec"
+
+        return 1
+    }
+
+    local fsa_file_path="${!tmpvar}"
+
+    if [[ -n "$fsa_file_path" ]]; then
+        fsarchiver_archinfo "$tmpvar" "$fsa_file_path" || {
+            defer_forward_error "$1" \
+                "${!tmpvar}" \
+                mspec_release "$mspec"
+
+            return 1
+        }
+    else
+        printf_stderr 'No fsa file selected.\n'
+    fi
+
+    mspec_release "$tmpvar" "$mspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
     return 0
 }
