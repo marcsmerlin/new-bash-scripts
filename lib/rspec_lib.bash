@@ -69,17 +69,23 @@ rspec_normalize() {
     fi
 
     case "$candidate" in
+
     label:*)
         body="${candidate#label:}"
 
         label="${body%%/*}"
-        rest="${body#*/}"
+
+        if [[ $label == "$body" ]]; then
+            rest=''
+        else
+            rest="${body#*/}"
+        fi
 
         label="$(trim_string "$label")"
         rest="$(trim_string "$rest")"
 
-        if [[ -z $label || $label == "$body" ]]; then
-            originate_error "$1" 'rspec of type "label" must have the form label:<label>/<path>'
+        if [[ -z $label ]]; then
+            originate_error "$1" 'rspec of type "label" must have the form label:<label> or label:<label>/<path>'
             return 1
         fi
 
@@ -93,28 +99,31 @@ rspec_normalize() {
 
         host="${body%%/*}"
         rest="${body#*/}"
+
+        if [[ $host == "$body" ]]; then
+            originate_error "$1" 'rspec of type "nfs" must have form nfs:<host>/<share> or nfs:<host>/<share>/<path>'
+            return 1
+        fi
+
         share="${rest%%/*}"
-        rest="${rest#*/}"
+
+        if [[ $share == "$rest" ]]; then
+            rest=''
+        else
+            rest="${rest#*/}"
+        fi
 
         host="$(trim_string "$host")"
         share="$(trim_string "$share")"
         rest="$(trim_string "$rest")"
 
-        if [[ -z $host || -z $share || $host == "$body" || $share == "$rest" ]]; then
-            originate_error "$1" 'rspec of type "nfs" must have form nfs:<host>/<share>/<path>'
+        if [[ -z $host || -z $share ]]; then
+            originate_error "$1" 'rspec of type "nfs" must have form nfs:<host>/<share> or nfs:<host>/<share>/<path>'
             return 1
         fi
 
         path="$(_rspec_normalize_path "/$rest")"
         copy_out_result "$1" "nfs:$host/$share$path"
-        return 0
-        ;;
-
-    local:*)
-        body="${candidate#local:}"
-        path="$(_rspec_normalize_path "$body")"
-
-        copy_out_result "$1" "local:$path"
         return 0
         ;;
 
@@ -224,4 +233,34 @@ rspec_share() {
 #
 rspec_format() {
     printf '%s\n' "$1"
+}
+
+#
+# rspec_extend_path <rspec> <extension>
+#
+# Usage note: extended_rspec="$(rspec_extend_path "$original_rspec" 'marc/Videos')"
+#
+rspec_extend_path() {
+    local rspec="$1"
+    local extension="$2"
+    local type
+    local path
+
+    type="$(rspec_type "$rspec")"
+    path="$(_rspec_normalize_path "$(rspec_path "$rspec")/$extension")"
+
+    case "$type" in
+    local)
+        printf 'local:%s\n' "$path"
+        ;;
+    label)
+        printf 'label:%s%s\n' "$(rspec_label "$rspec")" "$path"
+        ;;
+    nfs)
+        printf 'nfs:%s/%s%s\n' \
+            "$(rspec_host "$rspec")" \
+            "$(rspec_share "$rspec")" \
+            "$path"
+        ;;
+    esac
 }
