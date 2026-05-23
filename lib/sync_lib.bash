@@ -31,6 +31,10 @@ source "$BASH_LIBS_DIR/rspec_lib.bash"
 source "$BASH_LIBS_DIR/mspec_lib.bash"
 (($? == 0)) || return 1
 
+# shellcheck source=./file_system_lib.bash
+source "$BASH_LIBS_DIR/file_system_lib.bash"
+(($? == 0)) || return 1
+
 #
 # _rsync_archive_wrapper <error-trace out> <source-directory> <archive-directory> <is_dry_run>
 #
@@ -85,8 +89,7 @@ sync_source_directory_to_archive_directory() {
 }
 
 #
-# sync_source_directory_to_archive_rspec <error-trace out> <source-directory> <archive-rspec> <is-dry-run>
-#
+# sync_source_directory_to_archive_rspec <error-trace out> <source-directory> <archive-rspec> <is-dry-run>#
 sync_source_directory_to_archive_rspec() {
     local source="$2"
     local rspec="$3"
@@ -111,6 +114,34 @@ sync_source_directory_to_archive_rspec() {
     }
 
     mspec_release "$tmpvar" "$mspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
+
+#
+# sync_user_directory_to_archive_rspec <error-trace out> <user> <directory> <rspec> <is_dry_run>
+#
+sync_user_directory_to_archive_rspec() {
+    local user="$2"
+    local directory="$3"
+    local rspec="$4"
+    local is_dry_run="$5"
+    
+    local tmpvar="$(make_tmpvar)"
+
+    get_user_home "$tmpvar" "$user" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local home="${!tmpvar}"
+    local source="$home/$directory"
+    local archive_rspec="$(rspec_extend_path "$rspec" "$user")"
+    
+    sync_source_directory_to_archive_rspec "$tmpvar" "$source" "$archive_rspec" "$is_dry_run" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
