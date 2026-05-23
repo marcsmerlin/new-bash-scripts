@@ -48,3 +48,27 @@ make_tmpdir() {
     return 0
 }
 
+#
+# get_user_home <home-directory | error-trace out> <user-name>
+#
+get_user_home() {
+    local user="$2"
+
+    [[ -n $user ]] || {
+        originate_error "$1" 'User name is empty.'
+        return 1
+    }
+
+    local entry
+
+    entry="$(getent passwd "$user")" || {
+        originate_error "$1" 'No such user: "%s".' "$user"
+        return 1
+    }
+
+    local home
+
+    IFS=: read -r _ _ _ _ _ home _ <<< "$entry"
+    copy_out_result "$1" "$home"
+    return 0
+}
