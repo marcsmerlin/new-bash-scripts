@@ -89,7 +89,8 @@ sync_source_directory_to_archive_directory() {
 }
 
 #
-# sync_source_directory_to_archive_rspec <error-trace out> <source-directory> <archive-rspec> <is-dry-run>#
+# sync_source_directory_to_archive_rspec <error-trace out> <source-directory> <archive-rspec> <is-dry-run>
+#
 sync_source_directory_to_archive_rspec() {
     local source="$2"
     local rspec="$3"
