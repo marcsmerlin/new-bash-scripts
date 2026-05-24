@@ -45,8 +45,6 @@ _rsync_archive_wrapper() {
 
     local rsync_opts=(
         --archive
-        --no-owner
-        --no-group
         --human-readable
         --delete
         --info=progress2
@@ -123,9 +121,9 @@ sync_source_directory_to_archive_rspec() {
 }
 
 #
-# sync_user_directory_to_archive_rspec <error-trace out> <user> <directory> <rspec> <is_dry_run>
+# sync_user_directory <error-trace out> <user> <directory> <rspec> <is_dry_run>
 #
-sync_user_directory_to_archive_rspec() {
+sync_user_directory() {
     local user="$2"
     local directory="$3"
     local rspec="$4"
