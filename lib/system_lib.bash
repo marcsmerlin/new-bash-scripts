@@ -120,3 +120,24 @@ request_confirmation() {
     [[ "$response" == "y" || "$response" == "yes" ]]
 }
 
+#
+# get_sudo_user
+#
+get_sudo_user() {
+    printf '%s\n' "${SUDO_USER:-$USER}"
+}
+
+
+#
+# get_sudo_uid
+#
+get_sudo_uid() {
+    printf '%s\n' "${SUDO_UID:-$(id -u)}"
+}
+
+#
+# get_sudo_gid
+#
+get_sudo_gid() {
+    printf '%s\n' "${SUDO_GID:-$(id -g)}"
+}
