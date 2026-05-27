@@ -12,24 +12,24 @@ fi
 
 # shellcheck source=./system_lib.bash
 source "$BASH_LIBS_DIR/system_lib.bash"
-(($? == 0 )) || return 1
+(($? == 0)) || return 1
 
 # shellcheck source=./result_type_lib.bash
 source "$BASH_LIBS_DIR/result_type_lib.bash"
-(($? == 0 )) || return 1
+(($? == 0)) || return 1
 
 #
 # Normalized rspec forms:
 #
 #   local:<absolute-path>
 #   label:<label>/<absolute-rspec-path-without-leading-extra-slash>
-#   nfs:<host>/<share>/<absolute-rspec-path-without-leading-extra-slash>
+#   cifs:<host>/<share>/<absolute-rspec-path-without-leading-extra-slash>
 #
 # Public rspec types:
 #
 #   local
 #   label
-#   nfs
+#   cifs
 #
 
 #
@@ -94,14 +94,14 @@ rspec_normalize() {
         return 0
         ;;
 
-    nfs:*)
-        body="${candidate#nfs:}"
+    cifs:*)
+        body="${candidate#cifs:}"
 
         host="${body%%/*}"
         rest="${body#*/}"
 
         if [[ $host == "$body" ]]; then
-            originate_error "$1" 'rspec of type "nfs" must have form nfs:<host>/<share> or nfs:<host>/<share>/<path>'
+            originate_error "$1" 'rspec of type "cifs" must have form cifs:<host>/<share> or cifs:<host>/<share>/<path>'
             return 1
         fi
 
@@ -118,12 +118,12 @@ rspec_normalize() {
         rest="$(trim_string "$rest")"
 
         if [[ -z $host || -z $share ]]; then
-            originate_error "$1" 'rspec of type "nfs" must have form nfs:<host>/<share> or nfs:<host>/<share>/<path>'
+            originate_error "$1" 'rspec of type "cifs" must have form cifs:<host>/<share> or cifs:<host>/<share>/<path>'
             return 1
         fi
 
         path="$(_rspec_normalize_path "/$rest")"
-        copy_out_result "$1" "nfs:$host/$share$path"
+        copy_out_result "$1" "cifs:$host/$share$path"
         return 0
         ;;
 
@@ -172,7 +172,7 @@ rspec_path() {
         printf '/%s\n' "$rest"
         ;;
 
-    nfs)
+    cifs)
         rest="${body#*/}"
         rest="${rest#*/}"
         printf '/%s\n' "$rest"
@@ -205,7 +205,7 @@ rspec_host() {
     local rspec="$1"
     local body="${rspec#*:}"
 
-    if [[ $(rspec_type "$rspec") == nfs ]]; then
+    if [[ $(rspec_type "$rspec") == cifs ]]; then
         printf '%s\n' "${body%%/*}"
     else
         printf '\n'
@@ -220,7 +220,7 @@ rspec_share() {
     local body="${rspec#*:}"
     local rest
 
-    if [[ $(rspec_type "$rspec") == nfs ]]; then
+    if [[ $(rspec_type "$rspec") == cifs ]]; then
         rest="${body#*/}"
         printf '%s\n' "${rest%%/*}"
     else
@@ -256,8 +256,8 @@ rspec_extend_path() {
     label)
         printf 'label:%s%s\n' "$(rspec_label "$rspec")" "$path"
         ;;
-    nfs)
-        printf 'nfs:%s/%s%s\n' \
+    cifs)
+        printf 'cifs:%s/%s%s\n' \
             "$(rspec_host "$rspec")" \
             "$(rspec_share "$rspec")" \
             "$path"
