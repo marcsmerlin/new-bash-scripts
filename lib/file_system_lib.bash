@@ -72,3 +72,34 @@ get_user_home() {
     copy_out_result "$1" "$home"
     return 0
 }
+
+#
+# mkdir_wrapper <error-trace out> <path>
+#
+mkdir_wrapper() {
+    local path="$2"
+    local tmpvar="$(make_tmpvar)"
+
+    capture_output mkdir -p "$path" || {
+        originate_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
+
+#
+# rmdir_wrapper <error-trace out> <path>
+#
+
+rmdir_wrapper() {
+    local path="$2"
+    local tmpvar="$(make_tmpvar)"
+
+    capture_output rmdir "$path" || {
+        originate_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
