@@ -113,9 +113,11 @@ mspec_format() {
 # mspec_file_path <mspec> <leaf-name>
 #
 mspec_file_path() {
+    local leaf_name="${2#/}"
+
     printf '%s/%s\n' \
         "$(mspec_path "$1")" \
-        "$2"
+        "$leaf_name"
 }
 
 #
@@ -192,145 +194,185 @@ mspec_release() {
 }
 
 #
-# _mspec_get_device_for_rspec <device | error-message out> <rspec>
+# _mspec_mount_local <mspec> <rspec>
 #
-_mspec_get_device_for_rspec() {
+_mspec_mount_local() {
     local rspec="$2"
-    local type="$(rspec_type "$rspec")"
 
-    case "$type" in
-    label)
-        local tmpvar="$(make_tmpvar)"
+    local path="$(rspec_path "$rspec")"
 
-        get_device_for_label "$tmpvar" \
-            "$(rspec_label "$rspec")" || {
-            forward_error "$1" "${!tmpvar}"
-            return 1
-        }
+    mkdir_wrapper "$1" "$path" || return 1
 
-        copy_out_result "$1" "${!tmpvar}"
-        return 0
-        ;;
-
-    nfs)
-        local host="$(rspec_host "$rspec")"
-        local share="$(rspec_share "$rspec")"
-
-        # Current NFS locator policy: shares are exported under /nfs.
-        copy_out_result "$1" "$host:/nfs/$share"
-        return 0
-        ;;
-
-    *)
-        originate_error "$1" \
-            'There is no mount device for resource "%s" of type "%s".' \
-            "$(rspec_format "$rspec")" \
-            "$type"
-        return 1
-        ;;
-
-    esac
-}
-
-#
-# _mspec_mount_wrapper <error-message out> <source> <target> [<mount-options>]
-#
-_mspec_mount_wrapper() {
-    local mount_output
-    local mount_cmd=(mount)
-
-    if [[ -n ${4:-} ]]; then
-        mount_cmd+=(--options "$4")
-    fi
-
-    mount_cmd+=("$2" "$3")
-
-    capture_output mount_output "${mount_cmd[@]}" || {
-        originate_error "$1" \
-            'Failed to mount source "%s" at target "%s": %s' \
-            "$2" \
-            "$3" \
-            "$mount_output"
-        return 1
-    }
-
-    return 0
-}
-
-#
-# _mspec_mount_rspec <mspec | error-message out> <cleanup-action> <rspec> <mount-point> [<mount-options>]
-#
-_mspec_mount_rspec() {
-    local cleanup_action="$2"
-    local rspec="$3"
-    local mount_point="$4"
     local tmpvar="$(make_tmpvar)"
 
-    if [[ "$(rspec_type "$rspec")" == local ]]; then
-        _mspec_make "$tmpvar" \
-            "$(rspec_path "$rspec")" \
-            '' \
-            none
-
-        copy_out_result "$1" "${!tmpvar}"
-        return 0
-    fi
-
-    local device
-
-    _mspec_get_device_for_rspec "$tmpvar" "$rspec" || {
-        forward_error "$1" "${!tmpvar}"
-        return 1
-    }
-
-    device="${!tmpvar}"
-
-    _mspec_mount_wrapper "$tmpvar" "$device" "$mount_point" "${5:-}" || {
-        forward_error "$1" "${!tmpvar}"
-        return 1
-    }
-
-    local required_directory="$mount_point$(rspec_path "$rspec")"
-
-    [[ -d "$required_directory" ]] || {
-        local error_message
-
-        printf -v error_message \
-            'Required directory for resource "%s" does not exist.' \
-            "$(rspec_format "$rspec")"
-
-        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
-            originate_error "$1" \
-                '%s Also failed to unmount mount point "%s": %s' \
-                "$error_message" \
-                "$mount_point" \
-                "${!tmpvar}"
-
-            return 1
-        }
-
-        originate_error "$1" '%s' "$error_message"
-        return 1
-    }
-
     _mspec_make "$tmpvar" \
-        "$required_directory" \
-        "$mount_point" \
-        "$cleanup_action"
+        "$path" \
+        '' \
+        none
 
     copy_out_result "$1" "${!tmpvar}"
     return 0
 }
 
 #
-# mspec_mount_rspec <mspec | error-message out> <rspec> <mount-point> [<mount-options>]
+# _mspec_mount_label <mspec | error-trace out> <rspec> <mount-point> <cleanup-action>
+#
+_mspec_mount_label() {
+    local rspec="$2"
+    local mount_point="$3"
+    local cleanup_action="$4"
+
+    local label="$(rspec_label "$rspec")"
+    local tmpvar="$(make_tmpvar)"
+
+    get_device_for_label "$tmpvar" "$label" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local device="${!tmpvar}"
+
+    capture_output "$tmpvar" mount "$device" "$mount_point" || {
+        originate_error "$1" \
+            'Failed to mount label ("%s") on mount point "%s": %s' \
+            "$label" \
+            "$mount_point" \
+            "${!tmpvar}"
+        return 1
+    }
+
+    local path="$(rspec_path "$rspec")"
+
+    mkdir_wrapper "$tmpvar" "$mount_point$path" || {
+        defer_forward_error "$1" \
+            "${!tmpvar}" \
+            _mspec_umount_wrapper "$mount_point"
+        return 1
+    }
+
+    _mspec_make "$tmpvar" \
+        "$mount_point$path" \
+        "$mount_point" \
+        "$cleanup_action"
+
+    copy_out_result "$1" "${!tmpvar}"
+
+    return 0
+}
+
+#
+# _mspec_mount_cifs <mspec | error-trace out> <rspec> <mount-point> <cleanup-action>
+#
+_mspec_mount_cifs() {
+    local rspec="$2"
+    local mount_point="$3"
+    local cleanup_action="$4"
+
+    local sudo_user="$(get_sudo_user)"
+    local tmpvar="$(make_tmpvar)"
+
+    get_user_home "$tmpvar" "$sudo_user" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local credentials="${!tmpvar}/.config/smb/credentials-mycloud"
+
+    [[ -f "$credentials" && -r "$credentials" ]] || {
+        originate_error "$1" \
+            'No readable CIFS credentials file found for user "%s": "%s"' \
+            "$sudo_user" \
+            "$credentials"
+        return 1
+    }
+
+    local service="//$(rspec_host "$rspec")"/"$(rspec_share "$rspec")"
+    local uid="$(get_sudo_uid)"
+    local gid="$(get_sudo_gid)"
+
+    capture_output "$tmpvar" mount.cifs "$service" "$mount_point" \
+        -o "credentials=$credentials,uid=$uid,gid=$gid" || {
+        originate_error "$1" \
+            'Failed to mount service "%s" on mount point "%s": %s' \
+            "$service" \
+            "$mount_point" \
+            "${!tmpvar}"
+        return 1
+    }
+
+    local path="$(rspec_path "$rspec")"
+
+    mkdir_wrapper "$tmpvar" "$mount_point$path" || {
+        defer_forward_error "$1" \
+            "${!tmpvar}" \
+            _mspec_umount_wrapper "$mount_point"
+        return 1
+    }
+
+    _mspec_make "$tmpvar" \
+        "$mount_point$path" \
+        "$mount_point" \
+        "$cleanup_action"
+
+    copy_out_result "$1" "${!tmpvar}"
+
+    return 0
+}
+
+#
+# _mspec_mount_rspec <mspec | error-message out> <rspec> <mount-point> <cleanup-action>
+#
+_mspec_mount_rspec() {
+    local rspec="$2"
+    local mount_point="$3"
+    local cleanup_action="$4"
+
+    local type="$(rspec_type "$rspec")"
+    local tmpvar="$(make_tmpvar)"
+
+    case "$type" in
+    local)
+        _mspec_mount_local "$tmpvar" "$rspec" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+        ;;
+
+    label)
+        _mspec_mount_label "$tmpvar" "$rspec" "$mount_point" "$cleanup_action" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+        ;;
+
+    cifs)
+        _mspec_mount_cifs "$tmpvar" "$rspec" "$mount_point" "$cleanup_action" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+        ;;
+
+    *)
+        originate_error "$1" \
+            'Unknown rspec type "%s".' \
+            "$type"
+        return 1
+        ;;
+    esac
+
+    copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+#
+# mspec_mount_rspec <mspec | error-message out> <rspec> <mount-point>
 #
 mspec_mount_rspec() {
     local rspec="$2"
     local mount_point="$3"
     local tmpvar="$(make_tmpvar)"
 
-    _mspec_mount_rspec "$tmpvar" umount "$rspec" "$mount_point" "${4:-}" || {
+    _mspec_mount_rspec "$tmpvar" "$rspec" "$mount_point" 'umount' || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
@@ -340,34 +382,34 @@ mspec_mount_rspec() {
 }
 
 #
-# mspec_temp_mount_rspec <mspec | error-message out> <rspec> [<mount-options>]
+# mspec_temp_mount_rspec <mspec | error-message out> <rspec>
 #
 mspec_temp_mount_rspec() {
     local rspec="$2"
+
+    local type="$(rspec_type "$rspec")"
     local tmpvar="$(make_tmpvar)"
 
-    if [[ "$(rspec_type "$rspec")" == local ]]; then
-        _mspec_mount_rspec "$tmpvar" none "$rspec" '' "${3:-}" || {
+    if [[ "$type" == local ]]; then
+        _mspec_mount_local "$tmpvar" "$rspec" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+    else
+        make_tmpdir "$tmpvar" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
 
-        copy_out_result "$1" "${!tmpvar}"
-        return 0
+        local tmpdir="${!tmpvar}"
+
+        _mspec_mount_rspec "$tmpvar" "$rspec" "$tmpdir" umount-rmdir || {
+            defer_forward_error "$1" \
+                "${!tmpvar}" \
+                rmdir_wrapper "$tmpdir"
+            return 1
+        }
     fi
-
-    make_tmpdir "$tmpvar" || {
-        forward_error "$1" "${!tmpvar}"
-        return 1
-    }
-
-    local tmpdir="${!tmpvar}"
-
-    _mspec_mount_rspec "$tmpvar" umount-rmdir "$rspec" "$tmpdir" "${3:-}" || {
-        forward_error "$1" "${!tmpvar}"
-        rmdir "$tmpdir"
-        return 1
-    }
 
     copy_out_result "$1" "${!tmpvar}"
     return 0
