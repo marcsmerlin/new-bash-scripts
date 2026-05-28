@@ -80,7 +80,7 @@ mkdir_wrapper() {
     local path="$2"
     local tmpvar="$(make_tmpvar)"
 
-    capture_output mkdir -p "$path" || {
+    capture_output "$tmpvar" mkdir -p "$path" || {
         originate_error "$1" "${!tmpvar}"
         return 1
     }
@@ -96,7 +96,7 @@ rmdir_wrapper() {
     local path="$2"
     local tmpvar="$(make_tmpvar)"
 
-    capture_output rmdir "$path" || {
+    capture_output "$tmpvar" rmdir "$path" || {
         originate_error "$1" "${!tmpvar}"
         return 1
     }
