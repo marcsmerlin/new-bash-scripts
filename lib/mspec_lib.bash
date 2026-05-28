@@ -276,7 +276,8 @@ _mspec_mount_cifs() {
         return 1
     }
 
-    local credentials="${!tmpvar}/.config/smb/credentials-mycloud"
+    local host="$(rspec_host "$rspec")"
+    local credentials="${!tmpvar}/.config/smb/credentials-$host"
 
     [[ -f "$credentials" && -r "$credentials" ]] || {
         originate_error "$1" \
@@ -286,7 +287,7 @@ _mspec_mount_cifs() {
         return 1
     }
 
-    local service="//$(rspec_host "$rspec")"/"$(rspec_share "$rspec")"
+    local service="//"$host/"$(rspec_share "$rspec")"
     local uid="$(get_sudo_uid)"
     local gid="$(get_sudo_gid)"
 
