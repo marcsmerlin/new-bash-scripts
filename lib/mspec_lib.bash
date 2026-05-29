@@ -3,12 +3,18 @@
 # shellcheck disable=SC2181
 
 # re-source guard
-[[ ${_mspec_lib_included:-} ]] && return
-readonly _mspec_lib_included=1
+[[ ${_mspec_lib_included:-} ]] && return 0
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 fi
+
+# shellcheck source=./system_lib.bash
+source "$BASH_LIBS_DIR/system_lib.bash" || return 1
+
+readonly _mspec_lib_deps=(mount.cifs)
+verify_script_dependencies "${_mspec_lib_deps[@]}" || return 1
+readonly _mspec_lib_included=1
 
 # shellcheck source=./result_type_lib.bash
 source "$BASH_LIBS_DIR/result_type_lib.bash"
