@@ -206,10 +206,19 @@ _mspec_mount_local() {
     local rspec="$2"
 
     local path="$(rspec_path "$rspec")"
-
-    mkdir_wrapper "$1" "$path" || return 1
-
     local tmpvar="$(make_tmpvar)"
+
+    if [[ ! -d "$path" ]]; then
+        request_confirmation "Create directory ${path}? " || {
+            originate_error "$1" 'Aborting: directory "%s" is required to proceed.' "$path"
+            return 1
+        }
+
+        mkdir_wrapper "$tmpvar" "$path" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+    fi
 
     _mspec_make "$tmpvar" \
         "$path" \
@@ -217,6 +226,34 @@ _mspec_mount_local() {
         none
 
     copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+#
+# _mspec_require_directory <error-trace out> <rspec> <mount_point>
+#
+_mspec_require_directory() {
+    local rspec="$2"
+    local mount_point="$3"
+
+    local path="$(rspec_path "$rspec")"
+
+    if [[ ! -d "$mount_point$path" ]]; then
+        local formatted_rspec="$(rspec_format "$rspec")"
+
+        request_confirmation "Create directory ${formatted_rspec}? " || {
+            originate_error "$1" 'Aborting: directory "%s" is required to proceed.' "$formatted_rspec"
+            return 1
+        }
+
+        local tmpvar="$(make_tmpvar)"
+
+        mkdir_wrapper "$tmpvar" "$mount_point$path" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+    fi
+
     return 0
 }
 
@@ -247,14 +284,14 @@ _mspec_mount_label() {
         return 1
     }
 
-    local path="$(rspec_path "$rspec")"
-
-    mkdir_wrapper "$tmpvar" "$mount_point$path" || {
+    _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
         defer_forward_error "$1" \
             "${!tmpvar}" \
             _mspec_umount_wrapper "$mount_point"
         return 1
     }
+
+    local path="$(rspec_path "$rspec")"
 
     _mspec_make "$tmpvar" \
         "$mount_point$path" \
@@ -307,14 +344,14 @@ _mspec_mount_cifs() {
         return 1
     }
 
-    local path="$(rspec_path "$rspec")"
-
-    mkdir_wrapper "$tmpvar" "$mount_point$path" || {
+    _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
         defer_forward_error "$1" \
             "${!tmpvar}" \
             _mspec_umount_wrapper "$mount_point"
         return 1
     }
+
+    local path="$(rspec_path "$rspec")"
 
     _mspec_make "$tmpvar" \
         "$mount_point$path" \
