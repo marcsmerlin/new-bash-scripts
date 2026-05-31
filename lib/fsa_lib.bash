@@ -70,16 +70,18 @@ fsarchiver_savefs() {
         -Z "$compression_level"
     )
 
+    local tmpvar="$(make_tmpvar)"
     local rc
 
-    fsarchiver savefs "${fsa_opts[@]}" "$fsa_file" "$fs_dev"
+    sudo_context_capture "$tmpvar" \
+        fsarchiver savefs "${fsa_opts[@]}" "$fsa_file" "$fs_dev"
+
     rc="$?"
 
-    if ((rc != 0)); then
-        originate_error "$1" \
-            'fsarchiver savefs failed with exit code %d.\n' "$rc"
+    ((rc == 0)) || {
+        originate_error "$1" "${!tmpvar}"
         return 1
-    fi
+    }
 
     return 0
 }
