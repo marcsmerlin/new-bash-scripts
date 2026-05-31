@@ -45,6 +45,10 @@ _rsync_archive_wrapper() {
 
     local rsync_opts=(
         --archive
+        --no-owner
+        --no-group
+        --no-perms
+        --omit-dir-times  
         --human-readable
         --delete
         --info=progress2
