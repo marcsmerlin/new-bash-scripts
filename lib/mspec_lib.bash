@@ -28,6 +28,10 @@ source "$BASH_LIBS_DIR/rspec_lib.bash"
 source "$BASH_LIBS_DIR/file_system_lib.bash"
 (($? == 0)) || return 1
 
+# shellcheck source=./sudo_lib.bash
+source "$BASH_LIBS_DIR/sudo_lib.bash"
+(($? == 0)) || return 1
+
 # mspec fields:
 #
 #   path
@@ -127,28 +131,6 @@ mspec_file_path() {
 }
 
 #
-# _mspec_umount_wrapper <error-message out> <mount-point>
-#
-_mspec_umount_wrapper() {
-    local mount_point="$2"
-    local tmpvar="$(make_tmpvar)"
-
-    capture_output "$tmpvar" umount "$mount_point" || {
-        sleep 1
-
-        capture_output "$tmpvar" umount "$mount_point" || {
-            originate_error "$1" \
-                'Failed to unmount mount point "%s": %s' \
-                "$mount_point" \
-                "${!tmpvar}"
-            return 1
-        }
-    }
-
-    return 0
-}
-
-#
 # mspec_release <error-message out> <mspec>
 #
 # Typical use: mspec_release "$1" "$mspec" || return "$?"
@@ -167,7 +149,7 @@ mspec_release() {
         ;;
 
     umount)
-        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
+        sudo_unmount "$tmpvar" "$mount_point" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -175,7 +157,7 @@ mspec_release() {
         ;;
 
     umount-rmdir)
-        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
+        sudo_unmount "$tmpvar" "$mount_point" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -268,26 +250,15 @@ _mspec_mount_label() {
     local label="$(rspec_label "$rspec")"
     local tmpvar="$(make_tmpvar)"
 
-    get_device_for_label "$tmpvar" "$label" || {
+    sudo_mount_label "$tmpvar" "$label" "$mount_point" || {
         forward_error "$1" "${!tmpvar}"
-        return 1
-    }
-
-    local device="${!tmpvar}"
-
-    capture_output "$tmpvar" mount "$device" "$mount_point" || {
-        originate_error "$1" \
-            'Failed to mount label ("%s") on mount point "%s": %s' \
-            "$label" \
-            "$mount_point" \
-            "${!tmpvar}"
         return 1
     }
 
     _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
         defer_forward_error "$1" \
             "${!tmpvar}" \
-            _mspec_umount_wrapper "$mount_point"
+            sudo_unmount "$mount_point"
         return 1
     }
 
@@ -320,34 +291,30 @@ _mspec_mount_cifs() {
     }
 
     local host="$(rspec_host "$rspec")"
-    local credentials="${!tmpvar}/.config/smb/credentials-$host"
+    local credentials_file="${!tmpvar}/.config/smb/credentials-$host"
 
-    [[ -f "$credentials" && -r "$credentials" ]] || {
+    [[ -f "$credentials_file" && -r "$credentials_file" ]] || {
         originate_error "$1" \
             'No readable CIFS credentials file found for user "%s": "%s"' \
             "$sudo_user" \
-            "$credentials"
+            "$credentials_file"
         return 1
     }
 
     local service="//"$host/"$(rspec_share "$rspec")"
     local uid="$(get_sudo_uid)"
     local gid="$(get_sudo_gid)"
+    local credentials="$credentials_file,uid=$uid,gid=$gid"
 
-    capture_output "$tmpvar" mount.cifs "$service" "$mount_point" \
-        -o "credentials=$credentials,uid=$uid,gid=$gid" || {
-        originate_error "$1" \
-            'Failed to mount service "%s" on mount point "%s": %s' \
-            "$service" \
-            "$mount_point" \
-            "${!tmpvar}"
+    sudo_mount_cifs "$tmpvar" "$service" "$mount_point" "$credentials" || {
+        forward_error "$1" "${!tmpvar}"
         return 1
     }
 
     _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
         defer_forward_error "$1" \
             "${!tmpvar}" \
-            _mspec_umount_wrapper "$mount_point"
+            sudo_unmount "$mount_point"
         return 1
     }
 
