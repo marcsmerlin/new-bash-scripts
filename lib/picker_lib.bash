@@ -23,13 +23,14 @@ source "$BASH_LIBS_DIR/system_lib.bash"
 _collect_entries_from_directory() {
     local directory="$2"
     local predicate="$3"
+    local -n selection_out="$4"
+
 
     [[ -d "$directory" ]] || {
         originate_error "$1" 'Directory "%s" does not exist.' "$directory"
         return 1
     }
 
-    local -n selection_out="$4"
     selection_out=()
 
     shopt -s nullglob
@@ -40,6 +41,11 @@ _collect_entries_from_directory() {
     done
 
     shopt -u nullglob
+
+    (( "${#selection_out[@]}" > 0 )) || {
+        originate_error "$1" 'Directory "%s" contains no matching files.' "$directory"
+        return 1
+    }
 
     return 0
 }

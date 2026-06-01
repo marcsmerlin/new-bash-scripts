@@ -3,12 +3,18 @@
 # shellcheck disable=SC2181
 
 # re-source guard
-[[ ${_mspec_lib_included:-} ]] && return
-readonly _mspec_lib_included=1
+[[ ${_mspec_lib_included:-} ]] && return 0
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 fi
+
+# shellcheck source=./system_lib.bash
+source "$BASH_LIBS_DIR/system_lib.bash" || return 1
+
+readonly _mspec_lib_deps=(mount.cifs)
+verify_script_dependencies "${_mspec_lib_deps[@]}" || return 1
+readonly _mspec_lib_included=1
 
 # shellcheck source=./result_type_lib.bash
 source "$BASH_LIBS_DIR/result_type_lib.bash"
@@ -20,6 +26,10 @@ source "$BASH_LIBS_DIR/rspec_lib.bash"
 
 # shellcheck source=./file_system_lib.bash
 source "$BASH_LIBS_DIR/file_system_lib.bash"
+(($? == 0)) || return 1
+
+# shellcheck source=./sudo_lib.bash
+source "$BASH_LIBS_DIR/sudo_lib.bash"
 (($? == 0)) || return 1
 
 # mspec fields:
@@ -121,28 +131,6 @@ mspec_file_path() {
 }
 
 #
-# _mspec_umount_wrapper <error-message out> <mount-point>
-#
-_mspec_umount_wrapper() {
-    local mount_point="$2"
-    local tmpvar="$(make_tmpvar)"
-
-    capture_output "$tmpvar" umount "$mount_point" || {
-        sleep 1
-
-        capture_output "$tmpvar" umount "$mount_point" || {
-            originate_error "$1" \
-                'Failed to unmount mount point "%s": %s' \
-                "$mount_point" \
-                "${!tmpvar}"
-            return 1
-        }
-    }
-
-    return 0
-}
-
-#
 # mspec_release <error-message out> <mspec>
 #
 # Typical use: mspec_release "$1" "$mspec" || return "$?"
@@ -161,7 +149,7 @@ mspec_release() {
         ;;
 
     umount)
-        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
+        sudo_unmount "$tmpvar" "$mount_point" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -169,7 +157,7 @@ mspec_release() {
         ;;
 
     umount-rmdir)
-        _mspec_umount_wrapper "$tmpvar" "$mount_point" || {
+        sudo_unmount "$tmpvar" "$mount_point" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -200,10 +188,22 @@ _mspec_mount_local() {
     local rspec="$2"
 
     local path="$(rspec_path "$rspec")"
-
-    mkdir_wrapper "$1" "$path" || return 1
-
     local tmpvar="$(make_tmpvar)"
+
+    if [[ ! -d "$path" ]]; then
+        request_confirmation "Create directory ${path}? " || {
+            originate_error "$1" \
+            'Aborting: directory "%s" is required to proceed.' \
+            "$path"
+
+            return 1
+        }
+
+        mkdir_wrapper "$tmpvar" "$path" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+    fi
 
     _mspec_make "$tmpvar" \
         "$path" \
@@ -211,6 +211,37 @@ _mspec_mount_local() {
         none
 
     copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+#
+# _mspec_require_directory <error-trace out> <rspec> <mount_point>
+#
+_mspec_require_directory() {
+    local rspec="$2"
+    local mount_point="$3"
+
+    local path="$(rspec_path "$rspec")"
+
+    if [[ ! -d "$mount_point$path" ]]; then
+        local formatted_rspec="$(rspec_format "$rspec")"
+
+        request_confirmation "Create directory ${formatted_rspec}? " || {
+            originate_error "$1" \
+            'Aborting: directory "%s" is required to proceed.' \
+            "$formatted_rspec"
+
+            return 1
+        }
+
+        local tmpvar="$(make_tmpvar)"
+
+        mkdir_wrapper "$tmpvar" "$mount_point$path" || {
+            forward_error "$1" "${!tmpvar}"
+            return 1
+        }
+    fi
+
     return 0
 }
 
@@ -225,30 +256,19 @@ _mspec_mount_label() {
     local label="$(rspec_label "$rspec")"
     local tmpvar="$(make_tmpvar)"
 
-    get_device_for_label "$tmpvar" "$label" || {
+    sudo_mount_label "$tmpvar" "$label" "$mount_point" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
-    local device="${!tmpvar}"
-
-    capture_output "$tmpvar" mount "$device" "$mount_point" || {
-        originate_error "$1" \
-            'Failed to mount label ("%s") on mount point "%s": %s' \
-            "$label" \
-            "$mount_point" \
-            "${!tmpvar}"
+    _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
+        defer_forward_error "$1" \
+            "${!tmpvar}" \
+            sudo_unmount "$mount_point"
         return 1
     }
 
     local path="$(rspec_path "$rspec")"
-
-    mkdir_wrapper "$tmpvar" "$mount_point$path" || {
-        defer_forward_error "$1" \
-            "${!tmpvar}" \
-            _mspec_umount_wrapper "$mount_point"
-        return 1
-    }
 
     _mspec_make "$tmpvar" \
         "$mount_point$path" \
@@ -277,38 +297,34 @@ _mspec_mount_cifs() {
     }
 
     local host="$(rspec_host "$rspec")"
-    local credentials="${!tmpvar}/.config/smb/credentials-$host"
+    local credentials_file="${!tmpvar}/.config/smb/credentials-$host"
 
-    [[ -f "$credentials" && -r "$credentials" ]] || {
+    [[ -f "$credentials_file" && -r "$credentials_file" ]] || {
         originate_error "$1" \
             'No readable CIFS credentials file found for user "%s": "%s"' \
             "$sudo_user" \
-            "$credentials"
+            "$credentials_file"
         return 1
     }
 
     local service="//"$host/"$(rspec_share "$rspec")"
     local uid="$(get_sudo_uid)"
     local gid="$(get_sudo_gid)"
+    local credentials="$credentials_file,uid=$uid,gid=$gid"
 
-    capture_output "$tmpvar" mount.cifs "$service" "$mount_point" \
-        -o "credentials=$credentials,uid=$uid,gid=$gid" || {
-        originate_error "$1" \
-            'Failed to mount service "%s" on mount point "%s": %s' \
-            "$service" \
-            "$mount_point" \
-            "${!tmpvar}"
+    sudo_mount_cifs "$tmpvar" "$service" "$mount_point" "$credentials" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
+        defer_forward_error "$1" \
+            "${!tmpvar}" \
+            sudo_unmount "$mount_point"
         return 1
     }
 
     local path="$(rspec_path "$rspec")"
-
-    mkdir_wrapper "$tmpvar" "$mount_point$path" || {
-        defer_forward_error "$1" \
-            "${!tmpvar}" \
-            _mspec_umount_wrapper "$mount_point"
-        return 1
-    }
 
     _mspec_make "$tmpvar" \
         "$mount_point$path" \

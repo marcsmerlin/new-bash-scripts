@@ -3,7 +3,7 @@
 # shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
 
 # re-source guard
-[[ ${_COMMAND_LIB_INCLUDED:-} ]] && return 0
+[[ ${_command_lib_included:-} ]] && return 0
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -14,9 +14,9 @@ source "$BASH_LIBS_DIR/system_lib.bash"
 (($? == 0 )) || return 1
 
 # shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
-readonly _COMMAND_LIB_DEPS=(getopt)
-verify_script_dependencies "${_COMMAND_LIB_DEPS[@]}" || return 1
-readonly _COMMAND_LIB_INCLUDED=1
+readonly _command_lib_deps=(getopt)
+verify_script_dependencies "${_command_lib_deps[@]}" || return 1
+readonly _command_lib_included=1
 
 # shellcheck source=./result_type_lib.bash
 source "$BASH_LIBS_DIR/result_type_lib.bash" || return 1
