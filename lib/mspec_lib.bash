@@ -192,7 +192,10 @@ _mspec_mount_local() {
 
     if [[ ! -d "$path" ]]; then
         request_confirmation "Create directory ${path}? " || {
-            originate_error "$1" 'Aborting: directory "%s" is required to proceed.' "$path"
+            originate_error "$1" \
+            'Aborting: directory "%s" is required to proceed.' \
+            "$path"
+
             return 1
         }
 
@@ -224,7 +227,10 @@ _mspec_require_directory() {
         local formatted_rspec="$(rspec_format "$rspec")"
 
         request_confirmation "Create directory ${formatted_rspec}? " || {
-            originate_error "$1" 'Aborting: directory "%s" is required to proceed.' "$formatted_rspec"
+            originate_error "$1" \
+            'Aborting: directory "%s" is required to proceed.' \
+            "$formatted_rspec"
+
             return 1
         }
 

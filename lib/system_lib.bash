@@ -8,8 +8,8 @@
 }
 
 # re-source guard
-[[ ${_SYSTEM_LIB_INCLUDED:-} ]] && return 0
-readonly _SYSTEM_LIB_INCLUDED=1
+[[ ${_system_lib_included:-} ]] && return 0
+readonly _system_lib_included=1
 
 #
 # trim_string <string>

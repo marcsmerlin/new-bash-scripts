@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 
 # re-source guard
-[[ ${_RESULT_TYPE_LIB_INCLUDED:-} ]] && return 0
-readonly _RESULT_TYPE_LIB_INCLUDED=1
+[[ ${_result_type_lib_included:-} ]] && return 0
+readonly _result_type_lib_included=1
 
 #
 # make_tmpvar (invoked via shell substitution)

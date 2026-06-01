@@ -3,8 +3,8 @@
 # shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
 
 # re-source guard
-[[ ${_FILE_SYSTEM_LIB_INCLUDED:-} ]] && return 0
-readonly _FILE_SYSTEM_LIB_INCLUDED=1
+[[ ${_file_system_lib_included:-} ]] && return 0
+readonly _file_system_lib_included=1
 
 if [[ -z ${BASH_LIBS_DIR:-} ]]; then
     readonly BASH_LIBS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"

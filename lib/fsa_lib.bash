@@ -12,8 +12,8 @@ fi
 # shellcheck source=./system_lib.bash
 source "$BASH_LIBS_DIR/system_lib.bash" || return 1
 
-readonly _FSA_LIB_DEPS=(fsarchiver)
-verify_script_dependencies "${_FSA_LIB_DEPS[@]}" || return 1
+readonly _fsa_lib_deps=(fsarchiver)
+verify_script_dependencies "${_fsa_lib_deps[@]}" || return 1
 readonly _fsa_lib_included=1
 
 # shellcheck source=./result_type_lib.bash
