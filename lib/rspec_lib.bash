@@ -85,7 +85,8 @@ rspec_normalize() {
         rest="$(trim_string "$rest")"
 
         if [[ -z $label ]]; then
-            originate_error "$1" 'rspec of type "label" must have the form label:<label> or label:<label>/<path>'
+            originate_error "$1" \
+                'rspec of type "label" must have the form label:<label> or label:<label>/<path>'
             return 1
         fi
 
@@ -101,7 +102,8 @@ rspec_normalize() {
         rest="${body#*/}"
 
         if [[ $host == "$body" ]]; then
-            originate_error "$1" 'rspec of type "cifs" must have form cifs:<host>/<share> or cifs:<host>/<share>/<path>'
+            originate_error "$1" \
+                'rspec of type "cifs" must have form cifs:<host>/<share> or cifs:<host>/<share>/<path>'
             return 1
         fi
 
@@ -118,7 +120,8 @@ rspec_normalize() {
         rest="$(trim_string "$rest")"
 
         if [[ -z $host || -z $share ]]; then
-            originate_error "$1" 'rspec of type "cifs" must have form cifs:<host>/<share> or cifs:<host>/<share>/<path>'
+            originate_error "$1" \
+                'rspec of type "cifs" must have form cifs:<host>/<share> or cifs:<host>/<share>/<path>'
             return 1
         fi
 
