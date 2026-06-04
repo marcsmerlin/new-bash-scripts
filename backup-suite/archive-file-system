@@ -24,7 +24,7 @@ source "$BASH_LIBS_DIR/fsa_lib.bash"
 (($? == 0)) || exit 1
 
 #
-# archive_file_system <fsa-file | error-trace out> <file-system> <top-level-rspec>
+# archive_file_system <fsa-file_rspec | error-trace out> <file-system> <top-level-rspec>
 #
 archive_file_system() {
     local file_system="$2"
@@ -95,13 +95,12 @@ rspec_normalize top_level_rspec "$raw_rspec" || {
 
 printf_stderr 'Archiving "%s" to "%s" ...\n' "$file_system" "$(rspec_format "$top_level_rspec")"
 
-declare result fsa_file_name
+declare result
 
 archive_file_system result "$file_system" "$top_level_rspec" || {
     print_error_trace "$result"
     exit 1
 }
 
-fsa_file_name="$result"
-printf_stderr '... "%s" created.\n' "$fsa_file_name"
+printf_stderr '"%s" created.\n' "$(rspec_format "$result")"
 exit 0

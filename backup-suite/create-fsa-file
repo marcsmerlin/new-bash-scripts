@@ -75,13 +75,12 @@ rspec_normalize rspec "$raw_rspec" || {
 
 printf_stderr 'Archiving "%s" to "%s" ...\n' "$file_system" "$(rspec_format "$rspec")"
 
-declare result fsa_file_name
+declare result
 
 create_fsa_file result "$file_system" "$rspec" || {
     print_error_trace "$result"
     exit 1
 }
 
-fsa_file_name="$result"
-printf_stderr '... "%s" created.\n' "$fsa_file_name"
+printf_stderr '"%s" created.\n' "$(rspec_format "$result")"
 exit 0

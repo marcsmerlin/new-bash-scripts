@@ -105,7 +105,7 @@ _make_fsa_file_name() {
 }
 
 #
-# create_fsa_file <error-trace | fsa-file-name out> <file-system> <resource-spec>
+# create_fsa_file <error-trace | fsa-file-rspec out> <file-system> <resource-spec>
 #
 create_fsa_file() {
     local file_system="$2"
@@ -153,7 +153,7 @@ create_fsa_file() {
         return 1
     }
 
-    copy_out_result "$1" "$fsa_file_name"
+    copy_out_result "$1" "$(rspec_extend_path "$rspec" "$fsa_file_name")"
     return 0
 }
 
