@@ -138,6 +138,16 @@ create_fsa_file() {
         return 1
     }
 
+    sudo_chown "$tmpvar" "$fsa_file_path" || {
+        local trigger_error="${!tmpvar}"
+
+        defer_forward_error "$1" \
+            "$trigger_error" \
+            mspec_release "$mspec"
+
+        return 1
+    }
+
     mspec_release "$tmpvar" "$mspec" || {
         forward_error "$1" "${!tmpvar}"
         return 1

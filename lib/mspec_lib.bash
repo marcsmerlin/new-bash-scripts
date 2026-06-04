@@ -199,7 +199,7 @@ _mspec_mount_local() {
             return 1
         }
 
-        mkdir_wrapper "$tmpvar" "$path" || {
+        sudo_make_directory "$tmpvar" "$path" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -236,7 +236,7 @@ _mspec_require_directory() {
 
         local tmpvar="$(make_tmpvar)"
 
-        mkdir_wrapper "$tmpvar" "$mount_point$path" || {
+        sudo_make_directory "$tmpvar" "$mount_point$path" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }

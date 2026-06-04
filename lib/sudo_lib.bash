@@ -13,6 +13,27 @@ fi
 source "$BASH_LIBS_DIR/result_type_lib.bash"
 (($? == 0)) || return 1
 
+#
+# get_sudo_user
+#
+get_sudo_user() {
+    printf '%s\n' "${SUDO_USER:-$USER}"
+}
+
+#
+# get_sudo_uid
+#
+get_sudo_uid() {
+    printf '%s\n' "${SUDO_UID:-$(id -u)}"
+}
+
+#
+# get_sudo_gid
+#
+get_sudo_gid() {
+    printf '%s\n' "${SUDO_GID:-$(id -g)}"
+}
+
 sudo_context_capture() {
     local output
     local rc
@@ -46,7 +67,7 @@ sudo_unmount() {
 
     rc="$?"
 
-    (( rc == 0 )) || {
+    ((rc == 0)) || {
         originate_error "$1" \
             'Failed to unmount mount point "%s": %s' \
             "$mount_point" \
@@ -79,7 +100,7 @@ sudo_mount_label() {
 
     rc="$?"
 
-    (( rc == 0 )) || {
+    ((rc == 0)) || {
         originate_error "$1" \
             'Failed to mount label ("%s") on mount point "%s": %s' \
             "$label" \
@@ -107,12 +128,62 @@ sudo_mount_cifs() {
 
     rc="$?"
 
-    (( rc == 0 )) || {
+    ((rc == 0)) || {
         originate_error "$1" \
             'Failed to mount service "%s" on mount point "%s" using credentials "%s": %s' \
             "$service" \
             "$mount_point" \
             "$credentials" \
+            "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
+
+#
+# sudo_make_directory <error-trace out> <path>
+#
+sudo_make_directory() {
+    local path="$2"
+
+    local tmpvar="$(make_tmpvar)"
+    local rc
+
+    sudo_context_capture "$tmpvar" \
+        install -d "$path" -o "$(get_sudo_uid)" -g "$(get_sudo_gid)"
+
+    rc="$?"
+
+    ((rc == 0)) || {
+        originate_error "$1" \
+            'Failed to create path "%s": %s' \
+            "$path" \
+            "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
+
+#
+# sudo_chown <error-trace out> <file>
+#
+sudo_chown() {
+    local file="$2"
+
+    local tmpvar="$(make_tmpvar)"
+    local rc
+
+    sudo_context_capture "$tmpvar" \
+        chown "$(get_sudo_uid):$(get_sudo_gid)" "$file"
+
+    rc="$?"
+
+    ((rc == 0)) || {
+        originate_error "$1" \
+            'Failed to change ownership "%s": %s' \
+            "$path" \
             "${!tmpvar}"
         return 1
     }
