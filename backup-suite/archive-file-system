@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2155 # Declare and assign separately to avoid masking return values.
+# shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
+
+readonly SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+readonly PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+readonly BASH_LIBS_DIR="$PROJECT_ROOT/lib"
+
+# shellcheck source=../lib/command_line_lib.bash
+source "$BASH_LIBS_DIR/command_line_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/result_type_lib.bash
+source "$BASH_LIBS_DIR/result_type_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/rspec_lib.bash
+source "$BASH_LIBS_DIR/rspec_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/fsa_lib.bash
+source "$BASH_LIBS_DIR/fsa_lib.bash"
+(($? == 0)) || exit 1
+
+#
+# archive_file_system <fsa-file | error-trace out> <file-system> <top-level-rspec>
+#
+archive_file_system() {
+    local file_system="$2"
+    local top_level_rspec="$3"
+
+    local extension="fsa-archive/$file_system"
+    local rspec="$(rspec_extend_path "$top_level_rspec" "$extension")"
+    local tmpvar="$(make_tmpvar)"
+
+    create_fsa_file "$tmpvar" "$file_system" "$rspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+show_help() {
+    local command_name="${1##*/}"
+
+    cat <<EOF
+Usage:
+  $command_name <file-system> <top-level-rspec> [OPTIONS]
+
+Options:
+  --help
+      Show this help message and exit.
+
+EOF
+}
+
+#
+# archive-file-system <file-system> <rspec> [OPTIONS]
+#
+error_trace=""
+
+getopt_spec="help"
+
+register_command_line error_trace "$getopt_spec" "$@" || {
+    print_error_trace "$error_trace"
+    exit 1
+}
+
+if has_command_line_opt "help"; then
+    show_help "$0"
+    exit 0
+fi
+
+declare -i arg_count
+
+get_command_line_arg_count arg_count
+
+if [[ arg_count -ne 2 ]]; then
+    show_help "$0"
+    exit 2
+fi
+
+declare file_system raw_rspec top_level_rspec
+
+get_command_line_arg 1 file_system
+get_command_line_arg 2 raw_rspec
+
+rspec_normalize top_level_rspec "$raw_rspec" || {
+    print_error_trace "$rspec"
+    exit 1
+}
+
+printf_stderr 'Archiving "%s" to "%s" ...\n' "$file_system" "$(rspec_format "$top_level_rspec")"
+
+declare result fsa_file_name
+
+archive_file_system result "$file_system" "$top_level_rspec" || {
+    print_error_trace "$result"
+    exit 1
+}
+
+fsa_file_name="$result"
+printf_stderr '... "%s" created.\n' "$fsa_file_name"
+exit 0
