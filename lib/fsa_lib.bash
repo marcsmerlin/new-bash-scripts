@@ -120,7 +120,7 @@ create_fsa_file() {
     local fs_dev="${!tmpvar}"
     local fsa_file_name="$(_make_fsa_file_name "$file_system")"
 
-    mspec_temp_mount_rspec "$tmpvar" "$rspec" || {
+    mspec_temp_mount_rspec "$tmpvar" "$rspec" 'create-if-missing' || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
@@ -164,7 +164,7 @@ inspect_fsa_file() {
     local rspec="$2"
     local tmpvar="$(make_tmpvar)"
 
-    mspec_temp_mount_rspec "$tmpvar" "$rspec" || {
+    mspec_temp_mount_rspec "$tmpvar" "$rspec" 'require-exisiting' || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
@@ -199,5 +199,25 @@ inspect_fsa_file() {
         return 1
     }
 
+    return 0
+}
+
+#
+# archive_file_system <fsa-file_rspec | error-trace out> <file-system> <top-level-rspec>
+#
+archive_file_system() {
+    local file_system="$2"
+    local top_level_rspec="$3"
+
+    local extension="fsa-archive/$file_system"
+    local rspec="$(rspec_extend_path "$top_level_rspec" "$extension")"
+    local tmpvar="$(make_tmpvar)"
+
+    create_fsa_file "$tmpvar" "$file_system" "$rspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    copy_out_result "$1" "${!tmpvar}"
     return 0
 }

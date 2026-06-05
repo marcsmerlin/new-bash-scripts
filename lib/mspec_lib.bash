@@ -182,10 +182,11 @@ mspec_release() {
 }
 
 #
-# _mspec_mount_local <mspec> <rspec>
+# _mspec_mount_local <mspec> <rspec> <directory-policy>
 #
 _mspec_mount_local() {
     local rspec="$2"
+    local directory_policy
 
     local path="$(rspec_path "$rspec")"
     local tmpvar="$(make_tmpvar)"
@@ -215,43 +216,63 @@ _mspec_mount_local() {
 }
 
 #
-# _mspec_require_directory <error-trace out> <rspec> <mount_point>
+# _mspec_require_directory <error-trace out> <rspec> <directory-policy> <mount_point>
 #
 _mspec_require_directory() {
     local rspec="$2"
-    local mount_point="$3"
+    local directory_policy="$3"
+    local mount_point="$4"
 
     local path="$(rspec_path "$rspec")"
+    local required_directory="$mount_point$path"
 
-    if [[ ! -d "$mount_point$path" ]]; then
-        local formatted_rspec="$(rspec_format "$rspec")"
+    [[ -d "$required_directory" ]] && return 0
 
+    local formatted_rspec="$(rspec_format "$rspec")"
+
+    case "$directory_policy" in
+    require-existing)
+        originate_error "$1" \
+            'Directory "%s" is required to proceed.' \
+            "$formatted_rspec"
+        return 1
+        ;;
+
+    create-if-missing)
         request_confirmation "Create directory ${formatted_rspec}? " || {
             originate_error "$1" \
-            'Aborting: directory "%s" is required to proceed.' \
-            "$formatted_rspec"
-
+                'Aborting: directory "%s" is required to proceed.' \
+                "$formatted_rspec"
             return 1
         }
 
         local tmpvar="$(make_tmpvar)"
 
-        sudo_make_directory "$tmpvar" "$mount_point$path" || {
+        sudo_make_directory "$tmpvar" "$required_directory" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
-    fi
 
-    return 0
+        return 0
+        ;;
+
+    *)
+        originate_error "$1" \
+            'Unknown directory policy "%s".' \
+            "$directory_policy"
+        return 1
+        ;;
+    esac
 }
 
 #
-# _mspec_mount_label <mspec | error-trace out> <rspec> <mount-point> <cleanup-action>
+# _mspec_mount_label <mspec | error-trace out> <rspec> <directoy-policy> <mount-point> <cleanup-action>
 #
 _mspec_mount_label() {
     local rspec="$2"
-    local mount_point="$3"
-    local cleanup_action="$4"
+    local directory_policy="$3"
+    local mount_point="$4"
+    local cleanup_action="$5"
 
     local label="$(rspec_label "$rspec")"
     local tmpvar="$(make_tmpvar)"
@@ -261,7 +282,7 @@ _mspec_mount_label() {
         return 1
     }
 
-    _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
+    _mspec_require_directory "$tmpvar" "$rspec" "$directory_policy" "$mount_point" || {
         defer_forward_error "$1" \
             "${!tmpvar}" \
             sudo_unmount "$mount_point"
@@ -281,12 +302,13 @@ _mspec_mount_label() {
 }
 
 #
-# _mspec_mount_cifs <mspec | error-trace out> <rspec> <mount-point> <cleanup-action>
+# _mspec_mount_cifs <mspec | error-trace out> <rspec> <directory_policy> <mount-point> <cleanup-action>
 #
 _mspec_mount_cifs() {
     local rspec="$2"
-    local mount_point="$3"
-    local cleanup_action="$4"
+    local directory_policy="$3"
+    local mount_point="$4"
+    local cleanup_action="$5"
 
     local sudo_user="$(get_sudo_user)"
     local tmpvar="$(make_tmpvar)"
@@ -317,7 +339,7 @@ _mspec_mount_cifs() {
         return 1
     }
 
-    _mspec_require_directory "$tmpvar" "$rspec" "$mount_point" || {
+    _mspec_require_directory "$tmpvar" "$rspec" "$directory_policy" "$mount_point" || {
         defer_forward_error "$1" \
             "${!tmpvar}" \
             sudo_unmount "$mount_point"
@@ -337,33 +359,34 @@ _mspec_mount_cifs() {
 }
 
 #
-# _mspec_mount_rspec <mspec | error-message out> <rspec> <mount-point> <cleanup-action>
+# _mspec_mount_rspec <mspec | error-trace out> <rspec> <directory-policy> <mount-point> <cleanup-action>
 #
 _mspec_mount_rspec() {
     local rspec="$2"
-    local mount_point="$3"
-    local cleanup_action="$4"
+    local directory_policy="$3"
+    local mount_point="$4"
+    local cleanup_action="$5"
 
     local type="$(rspec_type "$rspec")"
     local tmpvar="$(make_tmpvar)"
 
     case "$type" in
     local)
-        _mspec_mount_local "$tmpvar" "$rspec" || {
+        _mspec_mount_local "$tmpvar" "$rspec" "$directory_policy" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
         ;;
 
     label)
-        _mspec_mount_label "$tmpvar" "$rspec" "$mount_point" "$cleanup_action" || {
+        _mspec_mount_label "$tmpvar" "$rspec" "$directory_policy" "$mount_point" "$cleanup_action" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
         ;;
 
     cifs)
-        _mspec_mount_cifs "$tmpvar" "$rspec" "$mount_point" "$cleanup_action" || {
+        _mspec_mount_cifs "$tmpvar" "$rspec" "$directory_policy" "$mount_point" "$cleanup_action" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -382,14 +405,16 @@ _mspec_mount_rspec() {
 }
 
 #
-# mspec_mount_rspec <mspec | error-message out> <rspec> <mount-point>
+# mspec_mount_rspec <mspec | error-trace out> <rspec> <directory-policy ><mount-point>
 #
 mspec_mount_rspec() {
     local rspec="$2"
-    local mount_point="$3"
+    local directory_policy="$3"
+    local mount_point="$4"
+
     local tmpvar="$(make_tmpvar)"
 
-    _mspec_mount_rspec "$tmpvar" "$rspec" "$mount_point" 'umount' || {
+    _mspec_mount_rspec "$tmpvar" "$rspec" "$directory_policy" "$mount_point" 'umount' || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
@@ -399,16 +424,17 @@ mspec_mount_rspec() {
 }
 
 #
-# mspec_temp_mount_rspec <mspec | error-message out> <rspec>
+# mspec_temp_mount_rspec <mspec | error-trace out> <rspec> <directory-policy>
 #
 mspec_temp_mount_rspec() {
     local rspec="$2"
+    local directory_policy="$3"
 
     local type="$(rspec_type "$rspec")"
     local tmpvar="$(make_tmpvar)"
 
     if [[ "$type" == local ]]; then
-        _mspec_mount_local "$tmpvar" "$rspec" || {
+        _mspec_mount_local "$tmpvar" "$rspec" "$directory_policy" || {
             forward_error "$1" "${!tmpvar}"
             return 1
         }
@@ -420,7 +446,7 @@ mspec_temp_mount_rspec() {
 
         local tmpdir="${!tmpvar}"
 
-        _mspec_mount_rspec "$tmpvar" "$rspec" "$tmpdir" umount-rmdir || {
+        _mspec_mount_rspec "$tmpvar" "$rspec" "$directory_policy" "$tmpdir" umount-rmdir || {
             defer_forward_error "$1" \
                 "${!tmpvar}" \
                 rmdir_wrapper "$tmpdir"

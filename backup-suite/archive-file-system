@@ -23,26 +23,6 @@ source "$BASH_LIBS_DIR/rspec_lib.bash"
 source "$BASH_LIBS_DIR/fsa_lib.bash"
 (($? == 0)) || exit 1
 
-#
-# archive_file_system <fsa-file_rspec | error-trace out> <file-system> <top-level-rspec>
-#
-archive_file_system() {
-    local file_system="$2"
-    local top_level_rspec="$3"
-
-    local extension="fsa-archive/$file_system"
-    local rspec="$(rspec_extend_path "$top_level_rspec" "$extension")"
-    local tmpvar="$(make_tmpvar)"
-
-    create_fsa_file "$tmpvar" "$file_system" "$rspec" || {
-        forward_error "$1" "${!tmpvar}"
-        return 1
-    }
-
-    copy_out_result "$1" "${!tmpvar}"
-    return 0
-}
-
 show_help() {
     local command_name="${1##*/}"
 
