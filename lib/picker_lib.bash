@@ -51,47 +51,67 @@ _collect_entries_from_directory() {
 }
 
 #
-# _pick_entry_from_collection <collection>
+# _pick_index_from_collection <index> <prompt> <collection>
+#
+_pick_index_from_collection() {
+    local prompt="$2"
+    local -n _namref_pick_index_from_collection="$3"
+
+    local number_of_entries="${#_namref_pick_index_from_collection[@]}"
+
+    ((number_of_entries > 0)) || {
+        return 1
+    }
+
+    local index
+    local entry
+
+    for ((index = 0; index < number_of_entries; index++)); do
+        entry="${_namref_pick_index_from_collection[$index]}"
+        printf_stderr '%d) %s\n' "$index" "$(basename "$entry")"
+    done
+    
+    local tmpvar="$(make_tmpvar)"
+
+    read_integer_input "$tmpvar" "$prompt" 0 "$((number_of_entries - 1))" || {
+        return 1
+    }
+
+    copy_out_result "$1" "${!tmpvar}"
+    return 0
+}
+
+#
+# _pick_entry_from_collection <prompt> <collection>
 #
 _pick_entry_from_collection() {
     local prompt="$1"
+    local -n _namref_pick_entry_from_collection="$2"
+
     local tmpvar="$(make_tmpvar)"
-    local -n "$tmpvar"="$2"
-    local -i number_of_entries
 
-    eval "number_of_entries=\"\${#${tmpvar}[@]}\""
-
-    ((number_of_entries == 0)) && {
+    _pick_index_from_collection "$tmpvar" "$prompt" _namref_pick_entry_from_collection || {
         printf ''
         return
     }
 
-    local -i index
+    local index="${!tmpvar}"
     local entry
 
-    for ((index = 0; index < number_of_entries; index++)); do
-        eval "entry=\"\${${tmpvar}[$index]}\""
-        printf_stderr '%d) %s\n' "$index" "$(basename "$entry")"
-    done
-
-    read_integer_input index "$prompt" 0 "$((number_of_entries - 1))" && {
-        eval "entry=\"\${${tmpvar}[$index]}\""
-        printf '%s\n' "$entry"
-        return
-    }
-
-    printf ''
+    entry=${_namref_pick_entry_from_collection[$index]}
+    printf '%s\n' "$entry"
     return
 }
 
 #
-# pick_entry_from_directory <picked_entry | error-message out> <prompt> <directory> <predicate>
+# pick_entry_from_directory <entry | error-trace out> <prompt> <directory> <predicate>
 #
 # shellcheck disable=SC2034
 pick_entry_from_directory() {
     local prompt="$2"
     local directory="$3"
     local predicate="$4"
+
     local tmpvar="$(make_tmpvar)"
     local -a collection
 
@@ -100,7 +120,7 @@ pick_entry_from_directory() {
         return 1
     }
 
-    local picked_entry="$(_pick_entry_from_collection "$prompt" collection)"
-    copy_out_result "$1" "$picked_entry"
+    local entry="$(_pick_entry_from_collection "$prompt" collection)"
+    copy_out_result "$1" "$entry"
     return 0
 }
