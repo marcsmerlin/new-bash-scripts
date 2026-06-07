@@ -158,10 +158,12 @@ create_fsa_file() {
 }
 
 #
-# inspect_fsa_file <error-trace out> <resource-spec>
+# inspect_fsa_directory_with_filter <error-trace out> <resource-spec> <filter>
 #
-inspect_fsa_file() {
+inspect_fsa_directory_with_filter() {
     local rspec="$2"
+    local filter="$3"
+
     local tmpvar="$(make_tmpvar)"
 
     mspec_temp_mount_rspec "$tmpvar" "$rspec" 'require-exisiting' || {
@@ -172,7 +174,7 @@ inspect_fsa_file() {
     local mspec="${!tmpvar}"
     local directory="$(mspec_path "$mspec")"
 
-    pick_entry_from_directory "$tmpvar" 'index of file to inspect? ' "$directory" is_fsa_file || {
+    pick_entry_from_directory "$tmpvar" 'index of file to inspect? ' "$directory" "$filter" || {
         defer_forward_error "$1" \
             "${!tmpvar}" \
             mspec_release "$mspec"
@@ -195,6 +197,22 @@ inspect_fsa_file() {
     fi
 
     mspec_release "$tmpvar" "$mspec" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
+
+#
+# inspect_fsa_directory_unfiltered <error-trace out> <rspec>
+#
+inspect_fsa_directory_unfiltered() {
+    local rspec="$2"
+
+    local tmpvar="$(make_tmpvar)"
+
+    inspect_fsa_directory_with_filter "$tmpvar" "$rspec" is_fsa_file || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }

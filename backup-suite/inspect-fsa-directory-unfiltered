@@ -38,7 +38,7 @@ EOF
 }
 
 #
-# inspect-fsa-file <rspec> [OPTIONS]
+# inspect-fsa-directory-unfiltered <rspec> [OPTIONS]
 #
 error_trace=""
 
@@ -54,11 +54,11 @@ if has_command_line_opt "help"; then
     exit 0
 fi
 
-declare -i arg_count
+declare arg_count
 
 get_command_line_arg_count arg_count
 
-if [[ arg_count -ne 1 ]]; then
+if ((arg_count != 1)); then
     show_help "$0"
     exit 2
 fi
@@ -72,9 +72,9 @@ rspec_normalize rspec "$raw_rspec" || {
     exit 1
 }
 
-declare result fsa_file_name
+declare result
 
-inspect_fsa_file result "$rspec" || {
+inspect_fsa_directory_unfiltered result "$rspec" || {
     print_error_trace "$result"
     exit 1
 }
