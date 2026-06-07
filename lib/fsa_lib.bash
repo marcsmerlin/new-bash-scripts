@@ -209,8 +209,8 @@ archive_file_system() {
     local file_system="$2"
     local top_level_rspec="$3"
 
-    local extension="fsa-archive/$file_system"
-    local rspec="$(rspec_extend_path "$top_level_rspec" "$extension")"
+    local sentinel="fsa-archive"
+    local rspec="$(rspec_extend_path "$top_level_rspec" "$sentinel")"
     local tmpvar="$(make_tmpvar)"
 
     create_fsa_file "$tmpvar" "$file_system" "$rspec" || {
