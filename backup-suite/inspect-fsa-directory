@@ -74,7 +74,7 @@ rspec_normalize rspec "$raw_rspec" || {
 
 declare result
 
-inspect_fsa_directory_unfiltered result "$rspec" || {
+inspect_fsa_directory result "$rspec" || {
     print_error_trace "$result"
     exit 1
 }

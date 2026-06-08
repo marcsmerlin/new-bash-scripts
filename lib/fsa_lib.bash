@@ -151,18 +151,11 @@ create_fsa_file() {
 }
 
 #
-# is_fsa_file <file-name>
+# inspect_fsa_directory_with_pattern <error-trace out> <resource-spec> <pattern>
 #
-is_fsa_file() {
-    [[ -f "$1" && "$1" == *.fsa ]]
-}
-
-#
-# inspect_fsa_directory_with_filter <error-trace out> <resource-spec> <filter>
-#
-_inspect_fsa_directory_with_filter() {
+inspect_fsa_directory_with_pattern() {
     local rspec="$2"
-    local filter="$3"
+    local pattern="$3"
 
     local tmpvar="$(make_tmpvar)"
 
@@ -176,7 +169,7 @@ _inspect_fsa_directory_with_filter() {
 
     pick_entry_from_directory "$tmpvar" \
         'index of file to inspect? ' \
-        "$directory" "$filter" || {
+        "$directory" "$pattern" || {
 
         defer_forward_error "$1" \
             "${!tmpvar}" \
@@ -208,14 +201,14 @@ _inspect_fsa_directory_with_filter() {
 }
 
 #
-# inspect_fsa_directory_unfiltered <error-trace out> <rspec>
+# inspect_fsa_directory <error-trace out> <rspec>
 #
-inspect_fsa_directory_unfiltered() {
+inspect_fsa_directory() {
     local rspec="$2"
 
     local tmpvar="$(make_tmpvar)"
 
-    _inspect_fsa_directory_with_filter "$tmpvar" "$rspec" is_fsa_file || {
+    inspect_fsa_directory_with_pattern "$tmpvar" "$rspec" '*.fsa' || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }

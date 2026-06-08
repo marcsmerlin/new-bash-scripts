@@ -18,11 +18,11 @@ source "$BASH_LIBS_DIR/system_lib.bash"
 (($? == 0)) || return 1
 
 #
-# _collect_entries_from_directory <error-message out> <directory> <filter> <collection>
+# _collect_entries_from_directory <error-message out> <directory> <pattern> <collection>
 #
 _collect_entries_from_directory() {
     local directory="$2"
-    local filter="$3"
+    local pattern="$3"
     local -n selection_out="$4"
 
 
@@ -33,14 +33,18 @@ _collect_entries_from_directory() {
 
     selection_out=()
 
+    local old_nullglob
+    old_nullglob="$(shopt -p nullglob)"
     shopt -s nullglob
 
-    for entry in "$directory"/*; do
-        "$filter" "$entry" || continue
+    local entry
+
+    for entry in "$directory"/$pattern; do
+        [[ -f "$entry" ]] || continue
         selection_out+=("$entry")
     done
 
-    shopt -u nullglob
+    eval "$old_nullglob"
 
     (( "${#selection_out[@]}" > 0 )) || {
         originate_error "$1" 'Directory "%s" contains no matching files.' "$directory"
