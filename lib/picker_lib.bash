@@ -18,11 +18,11 @@ source "$BASH_LIBS_DIR/system_lib.bash"
 (($? == 0)) || return 1
 
 #
-# _collect_entries_from_directory <error-message out> <directory> <predicate> <collection>
+# _collect_entries_from_directory <error-message out> <directory> <filter> <collection>
 #
 _collect_entries_from_directory() {
     local directory="$2"
-    local predicate="$3"
+    local filter="$3"
     local -n selection_out="$4"
 
 
@@ -36,7 +36,7 @@ _collect_entries_from_directory() {
     shopt -s nullglob
 
     for entry in "$directory"/*; do
-        "$predicate" "$entry" || continue
+        "$filter" "$entry" || continue
         selection_out+=("$entry")
     done
 
@@ -73,7 +73,9 @@ _pick_index_from_collection() {
     
     local tmpvar="$(make_tmpvar)"
 
-    read_integer_input "$tmpvar" "$prompt" 0 "$((number_of_entries - 1))" || {
+    read_integer_input "$tmpvar" \
+        "$prompt" 0 "$((number_of_entries - 1))" || {
+
         return 1
     }
 
@@ -90,7 +92,9 @@ _pick_entry_from_collection() {
 
     local tmpvar="$(make_tmpvar)"
 
-    _pick_index_from_collection "$tmpvar" "$prompt" _namref_pick_entry_from_collection || {
+    _pick_index_from_collection "$tmpvar" \
+        "$prompt" _namref_pick_entry_from_collection || {
+
         printf ''
         return
     }
@@ -104,18 +108,18 @@ _pick_entry_from_collection() {
 }
 
 #
-# pick_entry_from_directory <entry | error-trace out> <prompt> <directory> <predicate>
+# pick_entry_from_directory <entry | error-trace out> <prompt> <directory> <filter>
 #
 # shellcheck disable=SC2034
 pick_entry_from_directory() {
     local prompt="$2"
     local directory="$3"
-    local predicate="$4"
+    local filter="$4"
 
     local tmpvar="$(make_tmpvar)"
     local -a collection
 
-    _collect_entries_from_directory "$tmpvar" "$directory" "$predicate" collection || {
+    _collect_entries_from_directory "$tmpvar" "$directory" "$filter" collection || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }

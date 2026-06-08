@@ -87,13 +87,6 @@ fsarchiver_savefs() {
 }
 
 #
-# is_fsa_file <file-name>
-#
-is_fsa_file() {
-    [[ -f "$1" && "$1" == *.fsa ]]
-}
-
-#
 # _make_fsa_file_name <file-system>
 #
 _make_fsa_file_name() {
@@ -158,9 +151,16 @@ create_fsa_file() {
 }
 
 #
+# is_fsa_file <file-name>
+#
+is_fsa_file() {
+    [[ -f "$1" && "$1" == *.fsa ]]
+}
+
+#
 # inspect_fsa_directory_with_filter <error-trace out> <resource-spec> <filter>
 #
-inspect_fsa_directory_with_filter() {
+_inspect_fsa_directory_with_filter() {
     local rspec="$2"
     local filter="$3"
 
@@ -174,7 +174,10 @@ inspect_fsa_directory_with_filter() {
     local mspec="${!tmpvar}"
     local directory="$(mspec_path "$mspec")"
 
-    pick_entry_from_directory "$tmpvar" 'index of file to inspect? ' "$directory" "$filter" || {
+    pick_entry_from_directory "$tmpvar" \
+        'index of file to inspect? ' \
+        "$directory" "$filter" || {
+
         defer_forward_error "$1" \
             "${!tmpvar}" \
             mspec_release "$mspec"
@@ -212,7 +215,7 @@ inspect_fsa_directory_unfiltered() {
 
     local tmpvar="$(make_tmpvar)"
 
-    inspect_fsa_directory_with_filter "$tmpvar" "$rspec" is_fsa_file || {
+    _inspect_fsa_directory_with_filter "$tmpvar" "$rspec" is_fsa_file || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
