@@ -205,10 +205,19 @@ inspect_fsa_directory_with_pattern() {
 #
 inspect_fsa_directory() {
     local rspec="$2"
+    local prefix="$3"
+
+    local pattern
+
+    if [[ -z "$prefix" ]]; then
+        pattern='*.fsa'
+    else
+        pattern="${prefix}"'*.fsa'
+    fi
 
     local tmpvar="$(make_tmpvar)"
 
-    inspect_fsa_directory_with_pattern "$tmpvar" "$rspec" '*.fsa' || {
+    inspect_fsa_directory_with_pattern "$tmpvar" "$rspec" "$pattern" || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
