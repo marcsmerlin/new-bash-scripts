@@ -42,23 +42,23 @@ EOF
 #
 error_trace=""
 
-getopt_spec="help"
+getopt_spec='help'
 
 register_command_line error_trace "$getopt_spec" "$@" || {
     print_error_trace "$error_trace"
     exit 1
 }
 
-if has_command_line_opt "help"; then
+if has_command_line_opt 'help'; then
     show_help "$0"
     exit 0
 fi
 
-declare -i arg_count
+declare arg_count
 
 get_command_line_arg_count arg_count
 
-if [[ arg_count -ne 2 ]]; then
+if ((arg_count != 2)); then
     show_help "$0"
     exit 2
 fi

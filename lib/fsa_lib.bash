@@ -201,7 +201,7 @@ inspect_fsa_directory_with_pattern() {
 }
 
 #
-# inspect_fsa_directory <error-trace out> <rspec>
+# inspect_fsa_directory <error-trace out> <rspec> [<prefix>]
 #
 inspect_fsa_directory() {
     local rspec="$2"
@@ -225,6 +225,25 @@ inspect_fsa_directory() {
     return 0
 }
 
+readonly _fsa_archive_sentinel='fsa-archive'
+#
+# inspect_fsa_archive <error-trace out> <top-level-rspec> [<prefix>]
+#
+inspect_fsa_archive() {
+    local top_level_rspec="$2"
+    local prefix="$3"
+
+    local rspec="$(rspec_extend_path "$top_level_rspec" "$_fsa_archive_sentinel")"
+    local tmpvar="$(make_tmpvar)"
+
+    inspect_fsa_directory "$tmpvar" "$rspec" "$prefix" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
+
 #
 # archive_file_system <fsa-file_rspec | error-trace out> <file-system> <top-level-rspec>
 #
@@ -232,8 +251,7 @@ archive_file_system() {
     local file_system="$2"
     local top_level_rspec="$3"
 
-    local sentinel="fsa-archive"
-    local rspec="$(rspec_extend_path "$top_level_rspec" "$sentinel")"
+    local rspec="$(rspec_extend_path "$top_level_rspec" "$_fsa_archive_sentinel")"
     local tmpvar="$(make_tmpvar)"
 
     create_fsa_file "$tmpvar" "$file_system" "$rspec" || {

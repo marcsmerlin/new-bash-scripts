@@ -41,18 +41,18 @@ EOF
 }
 
 #
-# inspect-fsa-directory-unfiltered <rspec> [OPTIONS]
+# inspect-fsa-directory <rspec> [OPTIONS]
 #
 error_trace=""
 
-getopt_spec="help,prefix:"
+getopt_spec='help,prefix:'
 
 register_command_line error_trace "$getopt_spec" "$@" || {
     print_error_trace "$error_trace"
     exit 1
 }
 
-if has_command_line_opt "help"; then
+if has_command_line_opt 'help'; then
     show_help "$0"
     exit 0
 fi
@@ -77,8 +77,8 @@ rspec_normalize rspec "$raw_rspec" || {
 
 declare prefix
 
-if has_command_line_opt "prefix"; then
-    get_command_line_opt_value "prefix" prefix
+if has_command_line_opt 'prefix'; then
+    get_command_line_opt_value 'prefix' prefix
 fi
 
 declare result
