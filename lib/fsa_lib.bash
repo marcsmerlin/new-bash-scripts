@@ -151,9 +151,9 @@ create_fsa_file() {
 }
 
 #
-# inspect_fsa_directory_with_pattern <error-trace out> <resource-spec> <pattern>
+# _inspect_fsa_directory <error-trace out> <resource-spec> <pattern>
 #
-inspect_fsa_directory_with_pattern() {
+_inspect_fsa_directory() {
     local rspec="$2"
     local pattern="$3"
 
@@ -217,7 +217,7 @@ inspect_fsa_directory() {
 
     local tmpvar="$(make_tmpvar)"
 
-    inspect_fsa_directory_with_pattern "$tmpvar" \
+    _inspect_fsa_directory "$tmpvar" \
         "$rspec" "$(_fsa_pattern_from_prefix "$prefix")" || {
 
         forward_error "$1" "${!tmpvar}"
