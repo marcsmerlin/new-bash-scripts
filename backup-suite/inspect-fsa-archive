@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2155 # Declare and assign separately to avoid masking return values.
+# shellcheck disable=SC2181 # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
+
+readonly SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+readonly PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+readonly BASH_LIBS_DIR="$PROJECT_ROOT/lib"
+
+# shellcheck source=../lib/command_line_lib.bash
+source "$BASH_LIBS_DIR/command_line_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/result_type_lib.bash
+source "$BASH_LIBS_DIR/result_type_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/rspec_lib.bash
+source "$BASH_LIBS_DIR/rspec_lib.bash"
+(($? == 0)) || exit 1
+
+# shellcheck source=../lib/fsa_lib.bash
+source "$BASH_LIBS_DIR/fsa_lib.bash"
+(($? == 0)) || exit 1
+
+show_help() {
+    local command_name="${1##*/}"
+
+    cat <<EOF
+Usage:
+  $command_name <top-level-rspec> [OPTIONS]
+
+Options:
+  --help
+      Show this help message and exit.
+
+  --prefix=string
+      Set prefix to string for fsa archive search.
+
+
+EOF
+}
+
+#
+# inspect-fsa-archive <top-level-rspec> [OPTIONS]
+#
+error_trace=""
+
+getopt_spec='help,prefix:'
+
+register_command_line error_trace "$getopt_spec" "$@" || {
+    print_error_trace "$error_trace"
+    exit 1
+}
+
+if has_command_line_opt "help"; then
+    show_help "$0"
+    exit 0
+fi
+
+declare arg_count
+
+get_command_line_arg_count arg_count
+
+if ((arg_count != 1)); then
+    show_help "$0"
+    exit 2
+fi
+
+declare raw_rspec rspec
+
+get_command_line_arg 1 raw_rspec
+
+rspec_normalize rspec "$raw_rspec" || {
+    print_error_trace "$rspec"
+    exit 1
+}
+
+declare prefix
+
+if has_command_line_opt 'prefix'; then
+    get_command_line_opt_value 'prefix' prefix
+fi
+
+declare result
+
+inspect_fsa_archive result "$rspec" "$prefix" || {
+    print_error_trace "$result"
+    exit 1
+}
+
+exit 0
