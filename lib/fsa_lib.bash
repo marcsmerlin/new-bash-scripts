@@ -201,23 +201,25 @@ inspect_fsa_directory_with_pattern() {
 }
 
 #
+# _fsa_pattern_from_prefix <prefix>
+#
+_fsa_pattern_from_prefix() {
+    local prefix="$1"
+    printf '%s\n' "${prefix}"'*.fsa'
+}
+
+#
 # inspect_fsa_directory <error-trace out> <rspec> [<prefix>]
 #
 inspect_fsa_directory() {
     local rspec="$2"
     local prefix="$3"
 
-    local pattern
-
-    if [[ -z "$prefix" ]]; then
-        pattern='*.fsa'
-    else
-        pattern="${prefix}"'*.fsa'
-    fi
-
     local tmpvar="$(make_tmpvar)"
 
-    inspect_fsa_directory_with_pattern "$tmpvar" "$rspec" "$pattern" || {
+    inspect_fsa_directory_with_pattern "$tmpvar" \
+        "$rspec" "$(_fsa_pattern_from_prefix "$prefix")" || {
+
         forward_error "$1" "${!tmpvar}"
         return 1
     }
