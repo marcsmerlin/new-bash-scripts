@@ -25,7 +25,6 @@ _collect_entries_from_directory() {
     local pattern="$3"
     local -n selection_out="$4"
 
-
     [[ -d "$directory" ]] || {
         originate_error "$1" 'Directory "%s" does not exist.' "$directory"
         return 1
@@ -46,7 +45,7 @@ _collect_entries_from_directory() {
 
     eval "$old_nullglob"
 
-    (( "${#selection_out[@]}" > 0 )) || {
+    (("${#selection_out[@]}" > 0)) || {
         originate_error "$1" 'Directory "%s" contains no matching files.' "$directory"
         return 1
     }
@@ -74,7 +73,7 @@ _pick_index_from_collection() {
         entry="${_namref_pick_index_from_collection[$index]}"
         printf_stderr '%d) %s\n' "$index" "$(basename "$entry")"
     done
-    
+
     local tmpvar="$(make_tmpvar)"
 
     read_integer_input "$tmpvar" \
@@ -112,23 +111,62 @@ _pick_entry_from_collection() {
 }
 
 #
-# pick_entry_from_directory <entry | error-trace out> <prompt> <directory> <filter>
+# pick_entry_from_directory <entry | error-trace out> <prompt> <directory> <pattern>
 #
 # shellcheck disable=SC2034
 pick_entry_from_directory() {
     local prompt="$2"
     local directory="$3"
-    local filter="$4"
+    local pattern="$4"
 
     local tmpvar="$(make_tmpvar)"
     local -a collection
 
-    _collect_entries_from_directory "$tmpvar" "$directory" "$filter" collection || {
+    _collect_entries_from_directory "$tmpvar" "$directory" "$pattern" collection || {
         forward_error "$1" "${!tmpvar}"
         return 1
     }
 
     local entry="$(_pick_entry_from_collection "$prompt" collection)"
     copy_out_result "$1" "$entry"
+    return 0
+}
+
+#
+# pick_and_process_entry_from_directory \
+#     <result | error-trace out> \
+#     <prompt> \
+#     <directory> \
+#     <pattern> \
+#     <command> \
+#     [<command-args>]
+#
+# command must have signature:
+#
+#     command <result | error-trace out> <entry> [<command-args>]
+#
+pick_and_process_entry_from_directory() {
+    local prompt="$2"
+    local directory="$3"
+    local pattern="$4"
+    local command="$5"
+    local -a command_args=("${@:6}")
+
+    local tmpvar="$(make_tmpvar)"
+
+    pick_entry_from_directory "$tmpvar" "$prompt" "$directory" "$pattern" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local entry="${!tmpvar}"
+
+    "$command" "$tmpvar" "$entry" "${command_args[@]}" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    copy_out_result "$1" "${!tmpvar}"
+
     return 0
 }

@@ -33,29 +33,9 @@ source "$BASH_LIBS_DIR/picker_lib.bash"
 (($? == 0)) || return 1
 
 #
-# fsarchiver_archinfo <error-trace out> <fsa-file>
-#
-fsarchiver_archinfo() {
-    local fsa_file="$2"
-    local rc
-
-    fsarchiver archinfo "$fsa_file"
-    rc="$?"
-
-    if ((rc != 0)); then
-        originate_error "$1" \
-            'fsarchiver archinfo has failed with error code %d.\n' \
-            "$rc"
-        return 1
-    fi
-
-    return 0
-}
-
-#
 # fsarchiver_savefs <error-trace out> <fsa-file> <fs-dev>
 #
-fsarchiver_savefs() {
+_fsarchiver_savefs() {
     local fsa_file="$2"
     local fs_dev="$3"
 
@@ -121,7 +101,7 @@ create_fsa_file() {
     local mspec="${!tmpvar}"
     local fsa_file_path="$(mspec_file_path "$mspec" "$fsa_file_name")"
 
-    fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
+    _fsarchiver_savefs "$tmpvar" "$fsa_file_path" "$fs_dev" || {
         local trigger_error="${!tmpvar}"
 
         defer_forward_error "$1" \
@@ -151,6 +131,31 @@ create_fsa_file() {
 }
 
 #
+# _fsarchiver_archinfo <error-trace out> <fsa-file>
+#
+_fsarchiver_archinfo() {
+    local fsa_file="$2"
+    local rc
+
+    [[ -n "$fsa_file" ]] || {
+        printf_stderr 'No fsa file selected.\n'
+        return 0
+    }
+
+    fsarchiver archinfo "$fsa_file"
+    rc="$?"
+
+    if ((rc != 0)); then
+        originate_error "$1" \
+            'fsarchiver archinfo has failed with error code %d.\n' \
+            "$rc"
+        return 1
+    fi
+
+    return 0
+}
+
+#
 # _inspect_fsa_directory <error-trace out> <resource-spec> <pattern>
 #
 _inspect_fsa_directory() {
@@ -167,9 +172,10 @@ _inspect_fsa_directory() {
     local mspec="${!tmpvar}"
     local directory="$(mspec_path "$mspec")"
 
-    pick_entry_from_directory "$tmpvar" \
+    pick_and_process_entry_from_directory "$tmpvar" \
         'index of file to inspect? ' \
-        "$directory" "$pattern" || {
+        "$directory" "$pattern" \
+        _fsarchiver_archinfo || {
 
         defer_forward_error "$1" \
             "${!tmpvar}" \
@@ -177,20 +183,6 @@ _inspect_fsa_directory() {
 
         return 1
     }
-
-    local fsa_file_path="${!tmpvar}"
-
-    if [[ -n "$fsa_file_path" ]]; then
-        fsarchiver_archinfo "$tmpvar" "$fsa_file_path" || {
-            defer_forward_error "$1" \
-                "${!tmpvar}" \
-                mspec_release "$mspec"
-
-            return 1
-        }
-    else
-        printf_stderr 'No fsa file selected.\n'
-    fi
 
     mspec_release "$tmpvar" "$mspec" || {
         forward_error "$1" "${!tmpvar}"
@@ -228,6 +220,7 @@ inspect_fsa_directory() {
 }
 
 readonly _fsa_archive_sentinel='fsa-archive'
+
 #
 # inspect_fsa_archive <error-trace out> <top-level-rspec> [<prefix>]
 #
