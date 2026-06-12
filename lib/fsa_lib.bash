@@ -201,7 +201,7 @@ _fsa_pattern_from_prefix() {
 }
 
 #
-# inspect_fsa_directory <error-trace out> <rspec> [<prefix>]
+# inspect_fsa_directory <error-trace out> <rspec> <prefix>
 #
 inspect_fsa_directory() {
     local rspec="$2"
@@ -222,7 +222,7 @@ inspect_fsa_directory() {
 readonly _fsa_archive_sentinel='fsa-archive'
 
 #
-# inspect_fsa_archive <error-trace out> <top-level-rspec> [<prefix>]
+# inspect_fsa_archive <error-trace out> <top-level-rspec> <prefix>
 #
 inspect_fsa_archive() {
     local top_level_rspec="$2"
@@ -257,3 +257,62 @@ archive_file_system() {
     copy_out_result "$1" "${!tmpvar}"
     return 0
 }
+
+# shellcheck source=./loop_device_lib.bash
+source "$BASH_LIBS_DIR/loop_device_lib.bash"
+(($? == 0)) || return 1
+
+#
+# create_fsa_file_image <image-file | error-trace-out> <fsa-file> <image-size> <destination-directory>
+#
+create_fsa_file_image() {
+    local fsa_file="$2"
+    local image_size="$3"
+    local destination_directory="$4"
+
+    local basename=${fsa_file##*/}
+    basename=${basename%.*}
+    local image_file="$destination_directory/${basename}.img"
+
+    local tmpvar="$(make_tmpvar)"
+
+    create_loop_image_file "$tmpvar" "$image_file" "$image_size" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    local loopdev="${!tmpvar}"
+
+    fsarchiver restfs "$fsa_file" id=0,dest="$loopdev" || {
+        originate_error "$1" \
+            'fsarchiver restfs failed for "%s".\n' \
+            "$fsa_file"
+
+        return 1
+    }
+
+    detach_loop_device "$loopdev"
+
+    copy_out_result "$1" "$image_file"
+    return 0
+}
+
+#
+# revive_fsa_archive <image_file | error-trace out> <top-level-rspec> [<prefix>]
+#
+revive_fsa_archive() {
+    local top_level_rspec="$2"
+    local prefix="$3"
+
+    local rspec="$(rspec_extend_path "$top_level_rspec" "$_fsa_archive_sentinel")"
+    local tmpvar="$(make_tmpvar)"
+
+    inspect_fsa_directory "$tmpvar" "$rspec" "$prefix" || {
+        forward_error "$1" "${!tmpvar}"
+        return 1
+    }
+
+    return 0
+}
+
+
